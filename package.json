@@ -1,7 +1,7 @@
 {
   "name": "ai-pal",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "app.mjs",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start:dev": "nodemon ./src/app.mjs",
