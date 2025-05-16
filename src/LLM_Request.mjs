@@ -26,4 +26,6 @@ async function ask_LLM (prompt, instructions='') {
 }
 
 // Call to the function for testing purposes
-ask_LLM('Tell me a quick fact about the Atlantic Ocean', 'Answer like a pirate.').then(console.log);
+// ask_LLM('Tell me a quick fact about the Atlantic Ocean', 'Answer like a pirate.').then(console.log);
+
+export default ask_LLM;
