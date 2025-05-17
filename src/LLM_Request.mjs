@@ -8,20 +8,39 @@ const openai = new OpenAI({
 });
 
 // Function to call the LLM
-async function ask_LLM (prompt, instructions='') {
+async function ask_LLM(prompt, instructions = '', memory = []) {
+  const messages = [];
+
+  // Push personality or setup instructions
+  if (instructions) {
+    messages.push({
+      role: "system",
+      content: instructions,
+    });
+  }
+
+  // Added short-term memory: push alternating user and assistant messages
+  if (memory.length > 0) {
+    memory.forEach((entry) => {
+      messages.push({
+        role: entry.role,
+        content: entry.content,
+      });
+    });
+  }
+
+  // Push the current user prompt
+  messages.push({
+    role: "user",
+    content: prompt,
+  });
+
+  // Make the API call
   const completion = await openai.chat.completions.create({
     model: API_KEY.model,
-    messages: [
-        {
-            "role": "system",
-            "content": instructions
-        },
-        {
-            "role": "user",
-            "content": prompt
-        }
-    ]
+    messages,
   });
+
   return completion.choices[0].message.content;
 }
 
