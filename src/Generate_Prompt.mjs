@@ -23,4 +23,12 @@ function generateSpritePrompt (result, spritesString) {
       Example of bad response: 'The sprite that fits the best to the text is the "happy" image.'`
 };
 
-export { generateInstructionPrompt,  generateSpritePrompt, generatePersonalityPrompt };
+function generateDiaryPrompt (personality) {
+    return `You're the following character: ${personality}
+      Write a concise diary entry based in all of the past interactions you've had with the user.
+      Write the diary entry in character and in first person.
+      Write as much information as you can about the user and about how you've felt during these interactions.
+      The entry's length must be of 1000 characters or less.`
+};
+
+export { generateInstructionPrompt,  generateSpritePrompt, generatePersonalityPrompt, generateDiaryPrompt };

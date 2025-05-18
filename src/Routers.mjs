@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { updateTextFile, updateMemoryFile } from './Write_To.mjs';
 import { readTextFile, readMemoryFile } from './Read_File.mjs';
-import { generateInstructionPrompt,  generateSpritePrompt, generatePersonalityPrompt } from './Generate_Prompt.mjs';
+import { generateInstructionPrompt,  generateSpritePrompt, generatePersonalityPrompt, generateDiaryPrompt } from './Generate_Prompt.mjs';
 import ask_LLM from './LLM_Request.mjs';
 import readContents from './get_images.mjs';
 
@@ -15,6 +15,7 @@ router.post('/api/personality', async (req, res) => {
   
   try {
     const personalityPrompt = generatePersonalityPrompt (name, looks, personality, language);
+    console.log("Messages sent to LLM:", personalityPrompt);
     const result = await ask_LLM(personalityPrompt);
     updateTextFile(result, './memory/personality.txt', 'w');
     const jsonData = JSON.stringify({ 'name': name, 'looks': looks, 'sprite': sprite}, null, 2);
@@ -29,34 +30,53 @@ router.post('/api/personality', async (req, res) => {
 // POST Request to send a message to the character
 router.post('/api/message', async (req, res) => {
   const { message } = req.body;
-  if (!message) return res.status(400).json({ error: 'Message required.' });
+  if (!message) return res.status(400).json({ error: 'Message required.' }); // Validating message
 
   const personality =  await readTextFile('./memory/personality.txt');
-  if (!personality) return res.status(400).json({ error: 'Personality required.' });
+  if (!personality) return res.status(400).json({ error: 'Personality required.' }); // Validating personality
 
   const previousMessages = await readMemoryFile('./memory/short_term.json');
-  const instruction = generateInstructionPrompt (personality);
-  
+  const instruction = generateInstructionPrompt (personality);  // Generating prompt for character's behavior
+  const previousEntries = await readMemoryFile('./memory/long_term.json');
+
   try {
-    const result = await ask_LLM(message, instruction, previousMessages);
-    const general = await readTextFile('./memory/general.json').then(JSON.parse);
-    const spritesString = await readContents(`./assets/sprites/${general.sprite}`)
-    const spritePrompt = generateSpritePrompt (result, spritesString);
-    const chosenSprite = await ask_LLM(spritePrompt);
-    if (previousMessages.length === 0) {
-      previousMessages.push(
-        { id: 1, role: 'user', content: message },
-        { id: 2, role: 'assistant', content: result, sprite: chosenSprite }
-      );
-    } else {
-      const lastId = previousMessages[previousMessages.length - 1]?.id ?? 0;
-      previousMessages.push(
-        { id: lastId + 1, role: 'user', content: message },
-        { id: lastId + 2, role: 'assistant', content: result, sprite: chosenSprite }
-      );    
+    const result = await ask_LLM(message, instruction, previousMessages, previousEntries); // Character's response
+    const general = await readTextFile('./memory/general.json').then(JSON.parse); 
+    const spritesString = await readContents(`./assets/sprites/${general.sprite}`) // Gets the character's sprites
+    const spritePrompt = generateSpritePrompt (result, spritesString); 
+    const chosenSprite = await ask_LLM(spritePrompt); // Chooses sprite
+    const lastId = previousMessages[previousMessages.length - 1]?.id ?? 0; // Gets the last id, returns 0 if there's none
+    previousMessages.push(
+      {
+        id: lastId + 1,
+        role: 'user',
+        content: message,
+        timestamp: new Date().toISOString()
+      },
+      {
+        id: lastId + 2,
+        role: 'assistant',
+        content: result,
+        sprite: chosenSprite,
+        timestamp: new Date().toISOString()
+      }
+    );
+    updateMemoryFile('./memory/short_term.json', previousMessages); // Updates short term memory with last interaction
+    if (lastId === 6) { // Every how often the character's generates a diary entry.
+      const diaryPrompt = generateDiaryPrompt(personality);
+      const diaryEntry = await ask_LLM(diaryPrompt, '', previousMessages);
+      const lastEntryId = previousEntries[previousEntries.length - 1]?.id ?? 0;
+      previousEntries.push(
+      {
+        id: lastEntryId + 1,
+        role: 'assistant',
+        content: 'Character\'s diary entry: ' + diaryEntry,
+        timestamp: new Date().toISOString()
+      },
+    );
+    updateMemoryFile('./memory/long_term.json', previousEntries);
     }
-    updateMemoryFile('./memory/short_term.json', previousMessages);
-    res.status(201).json({ characterResponse: result, characterSprite: chosenSprite });
+    res.status(201).json(previousMessages[previousMessages.length - 1]);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'LLM request failed.' });

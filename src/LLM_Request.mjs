@@ -8,7 +8,7 @@ const openai = new OpenAI({
 });
 
 // Function to call the LLM
-async function ask_LLM(prompt, instructions = '', memory = []) {
+async function ask_LLM(prompt, instructions = '', memory = [], diary = []) {
   const messages = [];
 
   // Push personality or setup instructions
@@ -29,6 +29,15 @@ async function ask_LLM(prompt, instructions = '', memory = []) {
     });
   }
 
+  if (diary.length > 0) {
+    diary.forEach((entry) => {
+      messages.push({
+        role: entry.role,
+        content: entry.content,
+      });
+    });
+  }
+
   // Push the current user prompt
   messages.push({
     role: "user",
@@ -40,6 +49,12 @@ async function ask_LLM(prompt, instructions = '', memory = []) {
     model: API_KEY.model,
     messages,
   });
+
+  // Debug logging
+  if (!completion || !completion.choices || !completion.choices[0]) {
+    console.error("Invalid completion response:", completion);
+    throw new Error("LLM response is invalid or empty.");
+  }
 
   return completion.choices[0].message.content;
 }
