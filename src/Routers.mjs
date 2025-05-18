@@ -2,13 +2,15 @@ import { Router } from 'express';
 import { updateTextFile, updateMemoryFile } from './Write_To.mjs';
 import { readTextFile, readMemoryFile } from './Read_File.mjs';
 import ask_LLM from './LLM_Request.mjs';
+import readContents from './get_images.mjs';
 
 const router = Router();
 
 // POST Request to get character's personality
 router.post('/api/personality', async (req, res) => {
-  const { name, personality, looks, language } = req.body; //Looks: male or female. Language: Spanish, English, Italian for now.
+  const { name, personality, looks, language, sprite } = req.body; //Looks: male or female. Language: Spanish, English, Italian for now.
   
+  // Must implement validation later
   if (!name || !personality) return res.status(400).json({ error: 'Name and personality are required.' });
   
   try {
@@ -22,6 +24,8 @@ router.post('/api/personality', async (req, res) => {
     `;
     const result = await ask_LLM(prompt);
     updateTextFile(result, './memory/personality.txt', 'w');
+    const jsonData = JSON.stringify({ 'name': name, 'looks': looks, 'sprite': sprite}, null, 2);
+    updateTextFile(jsonData, './memory/general.json', 'w');
     res.status(201).json({ characterProfile: result });
   } catch (error) {
     console.error(error);
@@ -42,12 +46,21 @@ router.post('/api/message', async (req, res) => {
   
   try {
     const result = await ask_LLM(message, instruction, previousMessages);
+    const general = await readTextFile('./memory/general.json').then(JSON.parse);
+    const spritesString = await readContents(`./assets/sprites/${general.sprite}`)
+    const chosenSprite = await ask_LLM(`Analize the sentiments of the character in 
+      the following text: ${result}
+      Now choose one and only one sprite from the following list of sprites: ${spritesString}
+      The sprite chosen must represt the character's sentiments as best as possible.
+      Answer by only writing back the sprite you chose and nothing else, 
+      keep extension of the sprite. Example of good response: 'happy.png'.
+      Example of bad response: 'The sprite that fits the best to the text is happy.'`)
     previousMessages.push(
       { role: 'user', content: message },
-      { role: 'assistant', content: result }
+      { role: 'assistant', content: result, sprite: chosenSprite }
     );
     updateMemoryFile('./memory/short_term.json', previousMessages);
-    res.status(201).json({ characterResponse: result });
+    res.status(201).json({ characterResponse: result, characterSprite: chosenSprite });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'LLM request failed.' });
