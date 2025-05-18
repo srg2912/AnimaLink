@@ -11,7 +11,7 @@ router.post('/api/personality', async (req, res) => {
   const { name, personality, looks, language, sprite } = req.body; //Looks: male or female. Language: Spanish, English, Italian for now.
   
   // Must implement validation later
-  if (!name || !personality) return res.status(400).json({ error: 'Name and personality are required.' });
+  if (!name || !personality || !looks || !language || !sprite) return res.status(400).json({ error: 'One or more fields are empty.' });
   
   try {
     const prompt = `Create a detailed personality profile for a fictional character 
