@@ -43,10 +43,18 @@ router.post('/api/message', async (req, res) => {
     const spritesString = await readContents(`./assets/sprites/${general.sprite}`)
     const spritePrompt = generateSpritePrompt (result, spritesString);
     const chosenSprite = await ask_LLM(spritePrompt);
-    previousMessages.push(
-      { role: 'user', content: message },
-      { role: 'assistant', content: result, sprite: chosenSprite }
-    );
+    if (previousMessages.length === 0) {
+      previousMessages.push(
+        { id: 1, role: 'user', content: message },
+        { id: 2, role: 'assistant', content: result, sprite: chosenSprite }
+      );
+    } else {
+      const lastId = previousMessages[previousMessages.length - 1]?.id ?? 0;
+      previousMessages.push(
+        { id: lastId + 1, role: 'user', content: message },
+        { id: lastId + 2, role: 'assistant', content: result, sprite: chosenSprite }
+      );    
+    }
     updateMemoryFile('./memory/short_term.json', previousMessages);
     res.status(201).json({ characterResponse: result, characterSprite: chosenSprite });
   } catch (error) {
