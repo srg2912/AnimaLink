@@ -8,9 +8,8 @@ const router = Router();
 
 // POST Request to get character's personality
 router.post('/api/personality', async (req, res) => {
-  const { name, personality, looks, language, sprite } = req.body; //Looks: male or female. Language: Spanish, English, Italian for now.
+  const { name, personality, looks, language, sprite } = req.body;
   
-  // Must implement validation later
   if (!name || !personality || !looks || !language || !sprite) return res.status(400).json({ error: 'One or more fields are empty.' });
   
   try {
