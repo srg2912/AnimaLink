@@ -20,6 +20,7 @@ router.post('/api/personality', async (req, res) => {
     Keep it concise and avoid using any markdown or formatting.
     Write in plain text, with no bullet points, bold text, numbered sections or new lines.
     Return you response in the same language the character speaks.
+    The response's length must be of 1000 characters or less.
     `;
     const result = await ask_LLM(prompt);
     updateTextFile(result, './memory/personality.txt', 'w');
