@@ -54,4 +54,40 @@ router.post('/api/message', async (req, res) => {
   }
 })
 
+// DELETE Request to reset memories
+// Route to delete all memories
+router.delete('/api/memory', async (req, res) => {
+  try {
+    await updateTextFile('', './memory/personality.txt', 'w');
+    await updateMemoryFile('./memory/short_term.json', []);
+    await updateMemoryFile('./memory/long_term.json', []);
+    return res.status(204).send('All memories deleted');
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to delete all memories.' });
+  }
+});
+
+// Route to delete a specific type of memory
+router.delete('/api/memory/:type', async (req, res) => {
+  const typeOfMemory = req.params.type;
+  try {
+    if (typeOfMemory === 'personality') {
+      await updateTextFile('', './memory/personality.txt', 'w');
+      return res.status(204).send('Personality deleted');
+    } else if (typeOfMemory === 'shortTerm') {
+      await updateMemoryFile('./memory/short_term.json', []);
+      return res.status(204).send('Short term memory deleted');
+    } else if (typeOfMemory === 'longTerm') {
+      await updateMemoryFile('./memory/long_term.json', []);
+      return res.status(204).send('Long term memory deleted');
+    } else {
+      return res.status(404).json({ error: 'Not a valid memory type.' });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to delete memory.' });
+  }
+});
+
 export default router;
