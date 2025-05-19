@@ -1,0 +1,3 @@
+{
+  "ignore": ["memory/*", "assets/*"]
+}
