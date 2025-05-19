@@ -7,6 +7,22 @@ import readContents from './get_images.mjs';
 
 const router = Router();
 
+// POST Request to get user's API
+router.post('/api/api_key', async (req, res) => {
+  const { model, key, endpoint } = req.body;
+
+  if (!model || !key || !endpoint) return res.status(400).json({ error: 'One or more fields are empty.' });
+
+  try {
+    const jsonData = JSON.stringify({ 'model': model, 'key': key, 'base_url': endpoint, 'type': 'module' }, null, 2);
+    await updateTextFile(jsonData, './config/user_config.json', 'w');
+    res.status(201).json({ 'model': model, 'key': key, 'base_url': endpoint, 'type': 'module' });
+  } catch (error) {
+    console.error(error);
+    res.status(400).json({ error: 'An error was produced when saving the data.' });
+  }
+});
+
 // POST Request to get character's personality
 router.post('/api/personality', async (req, res) => {
   const { name, personality, looks, language, sprite } = req.body;
