@@ -3,7 +3,7 @@ import { updateTextFile, updateMemoryFile } from './Write_To.mjs';
 import { readTextFile, readMemoryFile } from './Read_File.mjs';
 import { generateInstructionPrompt,  generateSpritePrompt, generatePersonalityPrompt, generateDiaryPrompt } from './Generate_Prompt.mjs';
 import ask_LLM from './LLM_Request.mjs';
-import readContents from './get_images.mjs';
+import { readContents, pickValidSprite } from './get_images.mjs';
 
 const router = Router();
 
@@ -60,6 +60,7 @@ router.post('/api/message', async (req, res) => {
     const spritesString = await readContents(`./assets/sprites/${general.sprite}`) // Gets the character's sprites
     const spritePrompt = generateSpritePrompt (result, spritesString); 
     const chosenSprite = await ask_LLM(spritePrompt); // Chooses sprite
+    const validSprite = await pickValidSprite(chosenSprite, `./assets/sprites/${general.sprite}`)
     const lastId = previousMessages[previousMessages.length - 1]?.id ?? 0; // Gets the last id, returns 0 if there's none
     // Push new interaction to memory
     const userMessage = {
@@ -72,27 +73,26 @@ router.post('/api/message', async (req, res) => {
       id: lastId + 2,
       role: 'assistant',
       content: result,
-      sprite: chosenSprite,
+      sprite: validSprite,
       timestamp: new Date().toISOString()
     };
     previousMessages.push(userMessage, assistantMessage);
-    updateMemoryFile('./memory/short_term.json', previousMessages);
+    await updateMemoryFile('./memory/short_term.json', previousMessages);
 
-    // Generate diary every n messages, n must be even
+    // Generate diary every n messages, n must be even bc assistant has even number ids
     if (assistantMessage.id % 30 === 0) {
       try {
         const diaryPrompt = generateDiaryPrompt(personality);
         const contextWindow = previousMessages.slice(-8);
         const diaryEntry = await ask_LLM(diaryPrompt, '', contextWindow);
-        console.log('Diary entry generated:', diaryEntry);
         const lastEntryId = previousEntries[previousEntries.length - 1]?.id ?? 0;
         previousEntries.push({
           id: lastEntryId + 1,
           role: 'assistant',
-          content: 'Character\'s diary entry: ' + diaryEntry,
+          content: 'Diary entry: ' + diaryEntry,
           timestamp: new Date().toISOString()
         });
-        updateMemoryFile('./memory/long_term.json', previousEntries);
+        await updateMemoryFile('./memory/long_term.json', previousEntries);
       } catch (error) {
         console.error('Error during diary generation:', error);
       }

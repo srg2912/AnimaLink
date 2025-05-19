@@ -20,7 +20,7 @@ function generateSpritePrompt (result, spritesString) {
       The sprite chosen must represt the character's feelings as best as possible.
       Answer by only writing back the sprite you chose and nothing else, keep the extension of the sprite.
       Example of good response: 'happy.png'.
-      Example of bad response: 'The sprite that fits the best to the text is the "happy" image.'`
+      Examples of bad response: 'The sprite that fits the best to the text is the "happy" image.', 'happy', 'happy.png\\n'`
 };
 
 function generateDiaryPrompt (personality) {
