@@ -48,7 +48,7 @@ router.post('/api/user_data', async (req, res) => {
       "hobbies": hobbies,
       "personality": personality
     };
-    const jsonData = JSON.stringify(data);
+    const jsonData = JSON.stringify(data, null, 2);
     await updateTextFile(jsonData, './config/user_data.json', 'w');
     res.status(201).json(data);
   } catch (error) {
@@ -87,7 +87,7 @@ router.patch('/api/user_data', async (req, res) => {
     if (!currentUserData.name) throw new Error('Cannot leave name empty.');
     if (!currentUserData.gender) throw new Error('Cannot leave gender empty.');
     if (!currentUserData.pronouns) throw new Error('Cannot leave pronouns empty.');
-    const jsonData = JSON.stringify(currentUserData);
+    const jsonData = JSON.stringify(currentUserData, null, 2);
     await updateTextFile(jsonData, './config/user_data.json', 'w');
     res.status(201).json(currentUserData);
   } catch (error) {
