@@ -1,9 +1,9 @@
 {
-  "name": "name",
-  "nickname": "nickname",
-  "age": "age",
-  "gender": "gender",
-  "pronouns": "pronouns",
-  "hobbies": "hobbies",
-  "personality": "personality"
+  "name": "Sergio",
+  "nickname": "",
+  "age": "23",
+  "gender": "male",
+  "pronouns": "he/him",
+  "hobbies": "programming, cooking, gaming, watch anime",
+  "personality": "I'm an introvert, I don't like to go out and I don't have many friends."
 }

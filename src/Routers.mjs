@@ -150,7 +150,8 @@ router.post('/api/message', async (req, res) => {
   if (!personality) return res.status(400).json({ error: 'Personality required.' }); // Validating personality
 
   const previousMessages = await readMemoryFile('./memory/short_term.json');
-  const instruction = generateInstructionPrompt (personality);  // Generating prompt for character's behavior
+  const user_data = await readTextFile('./config/user_data.json').then(JSON.parse); 
+  const instruction = generateInstructionPrompt (personality, user_data);  // Generating prompt for character's behavior
   const previousEntries = await readMemoryFile('./memory/long_term.json');
 
   try {
@@ -193,9 +194,24 @@ router.post('/api/message', async (req, res) => {
         });
         await updateMemoryFile('./memory/long_term.json', previousEntries);
       } catch (error) {
-        console.error('Error during diary generation:', error);
+        console.error('Error during diary entry generation: ', error);
       }
     }
+
+    // Generate a save file every n messages
+    if (assistantMessage.id % 10 === 0) {
+      try {
+        const general = await readTextFile('./memory/general.json').then(JSON.parse);
+        const shortTerm = await readTextFile('./memory/short_term.json').then(JSON.parse);
+        const longTerm = await readTextFile('./memory/long_term.json').then(JSON.parse);
+        const personality = await readTextFile('./memory/personality.txt')
+        const backupObject = { general: general, shortTerm: shortTerm, longTerm: longTerm, personality: personality };
+        await updateMemoryFile(`./backups/${general.name}_backup.json`, backupObject);
+      } catch (error) {
+        console.error('Error during backup generation: ', error);
+      }
+    }    
+
     res.status(201).json(previousMessages[previousMessages.length - 1]);
   } catch (error) {
     console.error(error);
@@ -203,7 +219,7 @@ router.post('/api/message', async (req, res) => {
   }
 })
 
-// DELETE Request to reset memories
+// DELETE Requests to reset memories
 // Route to delete all memories
 router.delete('/api/memory', async (req, res) => {
   try {
@@ -243,5 +259,31 @@ router.delete('/api/memory/:type', async (req, res) => {
     res.status(500).json({ error: 'Failed to delete memory.' });
   }
 });
+
+// GET Request to retrieve data from backup
+router.get('/api/backups/:name', async (req, res) => {
+  const name = req.params.name;
+  if (!name) return res.status(400).json({ error: 'Bad request.' });
+
+  try {
+    const backupRaw = await readTextFile(`./backups/${name}_backup.json`);
+    const backupObject = JSON.parse(backupRaw);
+
+    if (!backupObject) return res.status(404).json({ error: 'Backup not found.' });
+
+    const { general, shortTerm, longTerm, personality } = backupObject;
+
+    await updateMemoryFile('./memory/short_term.json', shortTerm);
+    await updateMemoryFile('./memory/long_term.json', longTerm);
+    await updateTextFile(JSON.stringify(general, null, 2), './memory/general.json', 'w');
+    await updateTextFile(personality, './memory/personality.txt', 'w');
+
+    res.status(200).json({ message: 'Memory restored successfully.' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to get backup.' });
+  }
+});
+
 
 export default router;
