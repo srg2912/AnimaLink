@@ -2,8 +2,8 @@ import { Router } from 'express';
 import { updateTextFile, updateMemoryFile } from './Write_To.mjs';
 import { readTextFile, readMemoryFile } from './Read_File.mjs';
 import { generateInstructionPrompt,  generateSpritePrompt, generatePersonalityPrompt, generateDiaryPrompt } from './Generate_Prompt.mjs';
-import ask_LLM from './LLM_Request.mjs';
 import { readContents, pickValidSprite } from './get_images.mjs';
+import ask_LLM from './LLM_Request.mjs';
 
 const router = Router();
 
@@ -107,7 +107,7 @@ router.delete('/api/user_data', async (req, res) => {
   }
 });
 
-// POST Request to get character's personality
+// POST Request to generate character's personality
 router.post('/api/personality', async (req, res) => {
   const { name, personality, looks, language, sprite } = req.body;
   
@@ -116,13 +116,28 @@ router.post('/api/personality', async (req, res) => {
   try {
     const personalityPrompt = generatePersonalityPrompt (name, looks, personality, language);
     const result = await ask_LLM(personalityPrompt);
-    updateTextFile(result, './memory/personality.txt', 'w');
+    await updateTextFile(result, './memory/personality.txt', 'w');
     const jsonData = JSON.stringify({ 'name': name, 'looks': looks, 'sprite': sprite}, null, 2);
     await updateTextFile(jsonData, './memory/general.json', 'w');
     res.status(201).json({ characterProfile: result });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'LLM request failed.' });
+  }
+});
+
+// PATCH Request to manually edit character's personality
+router.patch('/api/personality', async (req, res) => {
+  const { edit } = req.body;
+  try {
+    if (!edit) {
+      throw new Error('Cannot leave personality empty.');
+    };
+    await updateTextFile(edit, './memory/personality.txt', 'w');
+    res.status(201).json({ characterProfile: edit });
+  } catch (error) {
+    console.error(error);
+    res.status(400).json({ error: 'Failed to edit character\'s personality.' });
   }
 });
 
@@ -163,7 +178,7 @@ router.post('/api/message', async (req, res) => {
     previousMessages.push(userMessage, assistantMessage);
     await updateMemoryFile('./memory/short_term.json', previousMessages);
 
-    // Generate diary every n messages, n must be even bc assistant has even number ids
+    // Generate diary every n messages, n must be even because assistant has even number Ids
     if (assistantMessage.id % 30 === 0) {
       try {
         const diaryPrompt = generateDiaryPrompt(personality);
