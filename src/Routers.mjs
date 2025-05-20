@@ -57,6 +57,56 @@ router.post('/api/user_data', async (req, res) => {
   }
 });
 
+// PATCH Request to edit user's data
+router.patch('/api/user_data', async (req, res) => {
+  const { name = '', 
+    gender = '', 
+    pronouns = '', 
+    age = '', 
+    nickname = '', 
+    hobbies = '', 
+    personality = '' 
+  } = req.body;
+
+  const currentUserData = await readTextFile('./config/user_data.json').then(JSON.parse);
+  if (!currentUserData) return res.status(400).json({ error: 'No current data to edit.' });
+
+  try {
+    const data = {
+      "name": name,
+      "nickname": nickname,
+      "age": age,
+      "gender": gender,
+      "pronouns": pronouns,
+      "hobbies": hobbies,
+      "personality": personality
+    };
+    for (const attribute in data) {
+      currentUserData[attribute] = data[attribute];
+    };
+    if (!currentUserData.name) throw new Error('Cannot leave name empty.');
+    if (!currentUserData.gender) throw new Error('Cannot leave gender empty.');
+    if (!currentUserData.pronouns) throw new Error('Cannot leave pronouns empty.');
+    const jsonData = JSON.stringify(currentUserData);
+    await updateTextFile(jsonData, './config/user_data.json', 'w');
+    res.status(201).json(currentUserData);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Couldn\'t save user\'s data.' });
+  }
+});
+
+// DELETE Request to delete user's data
+router.delete('/api/user_data', async (req, res) => {
+  try {
+    await updateTextFile('', './config/user_data.json', 'w');
+    res.status(204).json({ message: 'Data deleted succesfully.' });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Couldn\'t delete user\'s data.' });
+  }
+});
+
 // POST Request to get character's personality
 router.post('/api/personality', async (req, res) => {
   const { name, personality, looks, language, sprite } = req.body;
