@@ -23,6 +23,40 @@ router.post('/api/api_key', async (req, res) => {
   }
 });
 
+// POST Request to get user's data
+router.post('/api/user_data', async (req, res) => {
+  const { name, 
+    gender, 
+    pronouns, 
+    age = '', 
+    nickname = '', 
+    hobbies = '', 
+    personality = '' 
+  } = req.body;
+
+  if (!name) return res.status(400).json({ error: 'Name empty.' });
+  if (!gender) return res.status(400).json({ error: 'Gender empty.' });
+  if (!pronouns) return res.status(400).json({ error: 'Pronouns empty.' });
+
+  try {
+    const data = {
+      "name": name,
+      "nickname": nickname,
+      "age": age,
+      "gender": gender,
+      "pronouns": pronouns,
+      "hobbies": hobbies,
+      "personality": personality
+    };
+    const jsonData = JSON.stringify(data);
+    await updateTextFile(jsonData, './config/user_data.json', 'w');
+    res.status(201).json(data);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Couldn\'t save user\'s data.' });
+  }
+});
+
 // POST Request to get character's personality
 router.post('/api/personality', async (req, res) => {
   const { name, personality, looks, language, sprite } = req.body;
