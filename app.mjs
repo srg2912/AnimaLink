@@ -11,6 +11,7 @@ app.use(express.json());
 app.use(router);
 
 // Use Assets
+app.use(express.static('public'));
 app.use('/assets', express.static('assets'))
 
 // Server start
