@@ -1,0 +1,246 @@
+body {
+    font-family: sans-serif;
+    margin: 0;
+    background-color: #f0f0f0;
+    color: #333;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    box-sizing: border-box;
+}
+
+#app-container {
+    width: 100%;
+    max-width: 800px; /* Max width for non-game screens */
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+}
+
+.screen {
+    padding: 15px;
+}
+
+.screen h2 {
+    margin-top: 0;
+    color: #555;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+}
+
+label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+}
+
+input[type="text"],
+input[type="password"],
+input[type="url"],
+input[type="number"],
+textarea {
+    width: calc(100% - 22px);
+    padding: 10px;
+    margin-bottom: 15px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box;
+}
+
+textarea {
+    resize: vertical;
+}
+
+button {
+    background-color: #007bff;
+    color: white;
+    padding: 10px 15px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1em;
+    margin-right: 10px;
+}
+
+button:hover {
+    background-color: #0056b3;
+}
+
+button:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+
+.error-message {
+    color: red;
+    font-size: 0.9em;
+    margin-top: 10px;
+}
+
+/* Game Screen Specific Styles */
+#game-screen {
+    position: relative;
+    width: 100%;
+    height: 600px; /* Adjust as needed */
+    max-width: none; /* Override max-width for game screen */
+    overflow: hidden; /* Prevent scrollbars on game screen itself */
+    background-color: #000; /* Fallback if background image fails */
+}
+
+#background-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+}
+
+#background-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+#sprite-container {
+    position: absolute;
+    bottom: 0; /* Position at the bottom */
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 2;
+    height: 40%; /* Example height, adjust as needed */
+}
+
+#character-sprite {
+    height: 100%;
+    max-width: 100%; /* Ensure it doesn't overflow container */
+    object-fit: contain;
+    transition: opacity 0.5s ease-in-out; /* Smooth transition */
+}
+
+#chat-area {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80%;
+    max-width: 700px;
+    background-color: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 10px;
+    border-radius: 8px;
+    z-index: 3;
+    box-sizing: border-box;
+}
+
+#message-display {
+    height: 100px; /* Adjust as needed */
+    overflow-y: auto;
+    margin-bottom: 10px;
+    padding-right: 5px; /* For scrollbar */
+}
+
+#message-display .user-message,
+#message-display .assistant-message {
+    margin-bottom: 8px;
+    padding: 5px;
+    border-radius: 4px;
+    word-wrap: break-word;
+}
+
+#message-display .user-message {
+    text-align: right;
+    background-color: rgba(0, 123, 255, 0.5); /* User message blue */
+    margin-left: 20%;
+}
+
+#message-display .assistant-message {
+    text-align: left;
+    background-color: rgba(108, 117, 125, 0.5); /* Assistant message grey */
+    margin-right: 20%;
+}
+
+#input-area {
+    display: flex;
+}
+
+#userMessageInput {
+    flex-grow: 1;
+    margin-bottom: 0;
+    margin-right: 10px;
+    background-color: #fff;
+    color: #333;
+}
+
+#optionsButton {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    z-index: 4;
+    background-color: rgba(0,0,0,0.5);
+}
+
+/* Modal Styles */
+.modal {
+    display: none; /* Hidden by default */
+    position: fixed; /* Stay in place */
+    z-index: 100; /* Sit on top */
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto; /* Enable scroll if needed */
+    background-color: rgba(0,0,0,0.6); /* Black w/ opacity */
+}
+
+.modal-content {
+    background-color: #fefefe;
+    margin: 10% auto; /* 10% from the top and centered */
+    padding: 20px;
+    border: 1px solid #888;
+    width: 80%;
+    max-width: 600px;
+    border-radius: 8px;
+    position: relative;
+}
+
+.modal-content h2 {
+    margin-top: 0;
+}
+
+.modal-content button {
+    display: block;
+    width: 100%;
+    margin-bottom: 10px;
+}
+.modal-content button:last-child {
+    margin-bottom: 0;
+}
+
+.close-button {
+    color: #aaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+}
+
+.close-button:hover,
+.close-button:focus {
+    color: black;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.scrollable-content {
+    max-height: 400px;
+    overflow-y: auto;
+    white-space: pre-wrap; /* To respect newlines in memory display */
+    word-wrap: break-word;
+    background-color: #f9f9f9;
+    padding: 10px;
+    border: 1px solid #eee;
+    border-radius: 4px;
+}
