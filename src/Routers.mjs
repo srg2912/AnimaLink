@@ -219,6 +219,94 @@ router.post('/api/message', async (req, res) => {
   }
 })
 
+// POST Request to interact with the character, recicled logic of messaging
+router.post('/api/interact/:body_part', async (req, res) => {
+  const bodyPart = req.params.body_part;
+  if (!bodyPart) return res.status(400).json({ error: 'Body part not specified.' })
+  
+  let message = ''
+  if (bodyPart === 'hug') {
+    message = 'System Message: The user hugged your sprite.';
+  } else if (bodyPart === 'tickle') {
+    message = 'System Message: The user tickled your sprite on the ribs.';
+  } else if (bodyPart === 'kiss') {
+    message = 'System Message: The user kissed your sprite.';
+  } else {
+    message = `System Message: The user stroke your ${bodyPart} by interacting with your sprite.`;
+  };
+
+  if (!message) return res.status(500).json({ error: 'couldn\' perform action.' })
+
+  const personality =  await readTextFile('./memory/personality.txt');
+  if (!personality) return res.status(400).json({ error: 'Personality required.' });
+
+  const previousMessages = await readMemoryFile('./memory/short_term.json');
+  const user_data = await readTextFile('./config/user_data.json').then(JSON.parse); 
+  const instruction = generateInstructionPrompt (personality, user_data); 
+  const previousEntries = await readMemoryFile('./memory/long_term.json');
+
+  try {
+    const result = await ask_LLM(message, instruction, previousMessages, previousEntries);
+    const general = await readTextFile('./memory/general.json').then(JSON.parse); 
+    const spritesString = await readContents(`./assets/sprites/${general.sprite}`)
+    const spritePrompt = generateSpritePrompt (result, spritesString); 
+    const chosenSprite = await ask_LLM(spritePrompt);
+    const validSprite = await pickValidSprite(chosenSprite, `./assets/sprites/${general.sprite}`)
+    const lastId = previousMessages[previousMessages.length - 1]?.id ?? 0;
+    const userMessage = {
+      id: lastId + 1,
+      role: 'user',
+      content: `System: User interaction.`,
+      timestamp: new Date().toISOString()
+    };
+    const assistantMessage = {
+      id: lastId + 2,
+      role: 'assistant',
+      content: result,
+      sprite: validSprite,
+      timestamp: new Date().toISOString()
+    };
+    previousMessages.push(userMessage, assistantMessage);
+    await updateMemoryFile('./memory/short_term.json', previousMessages);
+
+    if (assistantMessage.id % 30 === 0) {
+      try {
+        const diaryPrompt = generateDiaryPrompt(personality);
+        const contextWindow = previousMessages.slice(-8);
+        const diaryEntry = await ask_LLM(diaryPrompt, '', contextWindow);
+        const lastEntryId = previousEntries[previousEntries.length - 1]?.id ?? 0;
+        previousEntries.push({
+          id: lastEntryId + 1,
+          role: 'assistant',
+          content: 'Diary entry: ' + diaryEntry,
+          timestamp: new Date().toISOString()
+        });
+        await updateMemoryFile('./memory/long_term.json', previousEntries);
+      } catch (error) {
+        console.error('Error during diary entry generation: ', error);
+      }
+    }
+
+    if (assistantMessage.id % 10 === 0) {
+      try {
+        const general = await readTextFile('./memory/general.json').then(JSON.parse);
+        const shortTerm = await readTextFile('./memory/short_term.json').then(JSON.parse);
+        const longTerm = await readTextFile('./memory/long_term.json').then(JSON.parse);
+        const personality = await readTextFile('./memory/personality.txt')
+        const backupObject = { general: general, shortTerm: shortTerm, longTerm: longTerm, personality: personality };
+        await updateMemoryFile(`./backups/${general.name}_backup.json`, backupObject);
+      } catch (error) {
+        console.error('Error during backup generation: ', error);
+      }
+    }    
+
+    res.status(201).json(previousMessages[previousMessages.length - 1]);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'LLM request failed.' });
+  }
+})
+
 // DELETE Requests to reset memories
 // Route to delete all memories
 router.delete('/api/memory', async (req, res) => {
