@@ -373,5 +373,26 @@ router.get('/api/backups/:name', async (req, res) => {
   }
 });
 
+// GET Request to get short term memory
+router.get('/api/memory/short_term', async (req, res) => {
+  try {
+    const messages = await readMemoryFile('./memory/short_term.json', -1);
+    res.status(200).json(messages);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to read short term memory.' });
+  }
+});
+
+// GET Request to get long term memory
+router.get('/api/memory/long_term', async (req, res) => {
+  try {
+    const entries = await readMemoryFile('./memory/long_term.json', -1);
+    res.status(200).json(entries);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to read long term memory.' });
+  }
+});
 
 export default router;

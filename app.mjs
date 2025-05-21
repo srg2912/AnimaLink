@@ -10,6 +10,9 @@ app.use(express.json());
 // Use the routers
 app.use(router);
 
+// Use Assets
+app.use('/assets', express.static('assets'))
+
 // Server start
 app.listen(PORT, () => {
     console.log(`Running on Port: ${PORT}`);
