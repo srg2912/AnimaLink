@@ -395,4 +395,55 @@ router.get('/api/memory/long_term', async (req, res) => {
   }
 });
 
+// GET Request to retrieve user's data
+router.get('/api/user_data', async (req, res) => {
+  try {
+    const userDataString = await readTextFile('./config/user_data.json');
+    // Check if the file content is empty, just {} or doesn't exist (readTextFile might return undefined or throw)
+    if (!userDataString || userDataString.trim() === '{}' || userDataString.trim() === '') {
+        return res.status(404).json({ error: 'User data not found.' });
+    }
+    const userData = JSON.parse(userDataString);
+    // Check for essential fields
+    if (!userData.name || !userData.gender || !userData.pronouns) {
+        return res.status(404).json({ error: 'User data incomplete.' });
+    }
+    res.status(200).json(userData);
+  } catch (error) {
+    // This catch block handles errors from readTextFile (e.g., file not found) 
+    // and JSON.parse (e.g., file is not valid JSON)
+    // console.error("Error in GET /api/user_data:", error.message); // Log specific error
+    res.status(404).json({ error: 'User data not found or is invalid.' });
+  }
+});
+
+// GET Request to retrieve character's personality and general info
+router.get('/api/personality', async (req, res) => {
+  try {
+    const personalityText = await readTextFile('./memory/personality.txt');
+    const generalJsonString = await readTextFile('./memory/general.json');
+
+    if (!personalityText || personalityText.trim() === '') {
+        return res.status(404).json({ error: 'Character personality not found.' });
+    }
+    if (!generalJsonString || generalJsonString.trim() === '{}' || generalJsonString.trim() === '') {
+        return res.status(404).json({ error: 'Character general info not found.' });
+    }
+    
+    const generalData = JSON.parse(generalJsonString);
+    // Check for essential fields in general.json
+    if (!generalData.name || !generalData.sprite) {
+        return res.status(404).json({ error: 'Character general info incomplete.' });
+    }
+
+    res.status(200).json({ 
+        profile: personalityText, 
+        general: generalData 
+    });
+  } catch (error) {
+    // console.error("Error in GET /api/personality:", error.message);
+    res.status(404).json({ error: 'Character profile not found or is invalid.' });
+  }
+});
+
 export default router;

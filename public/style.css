@@ -1,93 +1,122 @@
 body {
     font-family: sans-serif;
     margin: 0;
-    background-color: #f0f0f0;
-    color: #333;
+    background-color: #FFC5D3; /* Pastel Pink */
+    color: #333; /* Default text color for non-form elements */
     display: flex;
     justify-content: center;
     align-items: center;
     min-height: 100vh;
     box-sizing: border-box;
+    overflow: hidden; /* Prevent scrollbars on body if game screen is full */
 }
 
 #app-container {
     width: 100%;
-    max-width: 800px; /* Max width for non-game screens */
-    background-color: #fff;
+    max-width: 800px;
+    /* background-color: #fff; No longer white by default */
     padding: 20px;
     border-radius: 8px;
-    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    /* box-shadow: 0 0 10px rgba(0,0,0,0.1); Removed for flatter design */
+    box-sizing: border-box;
 }
 
 .screen {
     padding: 15px;
+    box-sizing: border-box;
 }
 
-.screen h2 {
+/* Form Box Styling */
+.form-box {
+    background-color: rgba(0, 0, 0, 0.35); /* Semi-transparent dark */
+    color: white; /* White font color */
+    padding: 25px;
+    border-radius: 10px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+
+.form-box h2 {
     margin-top: 0;
-    color: #555;
-    border-bottom: 1px solid #eee;
+    color: white; /* White headers */
+    border-bottom: 1px solid rgba(255, 255, 255, 0.3);
     padding-bottom: 10px;
     margin-bottom: 20px;
 }
 
-label {
+.form-box label {
     display: block;
-    margin-bottom: 5px;
+    margin-bottom: 8px;
     font-weight: bold;
+    color: white; /* White labels */
 }
 
-input[type="text"],
-input[type="password"],
-input[type="url"],
-input[type="number"],
-textarea {
+.form-box input[type="text"],
+.form-box input[type="password"],
+.form-box input[type="url"],
+.form-box input[type="number"],
+.form-box textarea {
     width: calc(100% - 22px);
-    padding: 10px;
-    margin-bottom: 15px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
+    padding: 12px;
+    margin-bottom: 18px;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    border-radius: 5px;
     box-sizing: border-box;
+    background-color: rgba(255, 255, 255, 0.1);
+    color: white; /* White text input */
+    font-size: 1em;
 }
 
-textarea {
+.form-box input::placeholder,
+.form-box textarea::placeholder {
+    color: rgba(255, 255, 255, 0.7); /* Light white placeholder */
+}
+
+.form-box textarea {
     resize: vertical;
+    min-height: 80px;
 }
 
-button {
-    background-color: #007bff;
+.form-box button {
+    background-color: #FF69B4; /* Hot Pink for buttons */
     color: white;
-    padding: 10px 15px;
+    padding: 12px 18px;
     border: none;
-    border-radius: 4px;
+    border-radius: 5px;
     cursor: pointer;
     font-size: 1em;
     margin-right: 10px;
+    transition: background-color 0.3s ease;
 }
 
-button:hover {
-    background-color: #0056b3;
+.form-box button:hover {
+    background-color: #FF1493; /* Deeper Pink on hover */
 }
 
-button:disabled {
-    background-color: #ccc;
+.form-box button:disabled {
+    background-color: #aaa;
     cursor: not-allowed;
 }
 
 .error-message {
-    color: red;
+    color: #FFDDDD; /* Light pink for errors for visibility on dark bg */
+    background-color: rgba(139, 0, 0, 0.5); /* Dark red transparent bg */
+    padding: 5px;
+    border-radius: 3px;
     font-size: 0.9em;
     margin-top: 10px;
 }
 
 /* Game Screen Specific Styles */
 #game-screen {
-    position: relative;
-    width: 100%;
-    height: 600px; /* Adjust as needed */
-    max-width: none; /* Override max-width for game screen */
-    overflow: hidden; /* Prevent scrollbars on game screen itself */
-    background-color: #000; /* Fallback if background image fails */
+    position: fixed; /* Use fixed to ensure it covers viewport */
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    max-width: none; 
+    overflow: hidden;
+    background-color: #000; 
+    padding: 0; /* Remove padding for full screen */
 }
 
 #background-container {
@@ -102,134 +131,166 @@ button:disabled {
 #background-image {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: cover; /* Stretch to fill container, cropping if necessary */
 }
 
 #sprite-container {
     position: absolute;
-    bottom: 0; /* Position at the bottom */
+    bottom: 0; 
     left: 50%;
     transform: translateX(-50%);
     z-index: 2;
-    height: 40%; /* Example height, adjust as needed */
+    height: 75vh; /* 75% of viewport height */
+    width: auto;   /* Adjust width automatically */
+    max-width: 90vw; /* Prevent it from being too wide on wide screens */
+    display: flex;
+    justify-content: center;
+    align-items: flex-end; /* Align sprite to bottom of container */
 }
 
 #character-sprite {
-    height: 100%;
-    max-width: 100%; /* Ensure it doesn't overflow container */
-    object-fit: contain;
-    transition: opacity 0.5s ease-in-out; /* Smooth transition */
+    max-height: 100%; /* Fill the height of sprite-container */
+    max-width: 100%; /* Don't exceed width of sprite-container */
+    object-fit: contain; /* Maintain aspect ratio, fit within bounds */
+    transition: opacity 0.5s ease-in-out;
 }
 
+/* Phone-like Chat Area */
 #chat-area {
     position: absolute;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 80%;
-    max-width: 700px;
-    background-color: rgba(0, 0, 0, 0.7);
+    top: 50%;
+    right: 20px; /* Position on the right */
+    transform: translateY(-50%);
+    width: 320px; /* Typical phone width */
+    height: 85vh; /* Tall, like a phone screen */
+    max-height: 600px; /* Max height for very tall screens */
+    background-color: rgba(50, 50, 50, 0.85); /* Darker semi-transparent */
     color: white;
-    padding: 10px;
-    border-radius: 8px;
+    padding: 15px;
+    border-radius: 20px; /* Rounded corners like a phone */
     z-index: 3;
     box-sizing: border-box;
+    display: flex;
+    flex-direction: column; /* Stack messages and input vertically */
+    box-shadow: 0 5px 20px rgba(0,0,0,0.3);
 }
 
 #message-display {
-    height: 100px; /* Adjust as needed */
+    flex-grow: 1; /* Take available space */
     overflow-y: auto;
     margin-bottom: 10px;
-    padding-right: 5px; /* For scrollbar */
+    padding-right: 5px; 
+    display: flex;
+    flex-direction: column; /* Stack messages */
 }
 
 #message-display .user-message,
 #message-display .assistant-message {
-    margin-bottom: 8px;
-    padding: 5px;
-    border-radius: 4px;
+    margin-bottom: 10px;
+    padding: 8px 12px;
+    border-radius: 15px; /* Bubble-like messages */
     word-wrap: break-word;
+    max-width: 80%; /* Prevent messages from being too wide */
+    font-size: 0.95em;
 }
 
 #message-display .user-message {
-    text-align: right;
-    background-color: rgba(0, 123, 255, 0.5); /* User message blue */
-    margin-left: 20%;
+    align-self: flex-end; /* Align to the right */
+    background-color: #007bff; 
+    border-bottom-right-radius: 5px; /* Tail for user */
 }
 
 #message-display .assistant-message {
-    text-align: left;
-    background-color: rgba(108, 117, 125, 0.5); /* Assistant message grey */
-    margin-right: 20%;
+    align-self: flex-start; /* Align to the left */
+    background-color: #6c757d;
+    border-bottom-left-radius: 5px; /* Tail for assistant */
 }
 
 #input-area {
     display: flex;
+    margin-top: auto; /* Push to bottom */
 }
 
 #userMessageInput {
     flex-grow: 1;
     margin-bottom: 0;
     margin-right: 10px;
-    background-color: #fff;
-    color: #333;
+    background-color: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: 1px solid rgba(255,255,255,0.4);
+    border-radius: 20px; /* Rounded input */
+    padding: 10px 15px;
+}
+#userMessageInput::placeholder {
+    color: rgba(255,255,255,0.7);
 }
 
-#optionsButton {
+/* Game Controls (Options, Actions) */
+#left-controls {
     position: absolute;
     bottom: 20px;
     left: 20px;
     z-index: 4;
-    background-color: rgba(0,0,0,0.5);
+    display: flex;
+    flex-direction: column; /* Stack buttons vertically */
+    gap: 10px; /* Space between option button and action controls */
 }
 
-/* Modal Styles */
+#interaction-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px; /* Space between select and button */
+}
+
+.game-button, .game-select {
+    background-color: rgba(0,0,0,0.6);
+    color: white;
+    border: 1px solid rgba(255,255,255,0.5);
+    padding: 8px 12px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.9em;
+}
+.game-button:hover, .game-select:hover {
+    background-color: rgba(0,0,0,0.8);
+}
+.game-select {
+    padding-right: 25px; /* Space for dropdown arrow */
+}
+
+
+/* Modal Styles - Ensure they use form-box styling if content is form-like */
 .modal {
-    display: none; /* Hidden by default */
-    position: fixed; /* Stay in place */
-    z-index: 100; /* Sit on top */
+    display: none; 
+    position: fixed; 
+    z-index: 100; 
     left: 0;
     top: 0;
     width: 100%;
     height: 100%;
-    overflow: auto; /* Enable scroll if needed */
-    background-color: rgba(0,0,0,0.6); /* Black w/ opacity */
+    overflow: auto; 
+    background-color: rgba(0,0,0,0.7); 
 }
 
 .modal-content {
-    background-color: #fefefe;
-    margin: 10% auto; /* 10% from the top and centered */
-    padding: 20px;
-    border: 1px solid #888;
+    /* Inherits .form-box styling if class is applied */
+    margin: 10% auto; 
     width: 80%;
     max-width: 600px;
-    border-radius: 8px;
     position: relative;
 }
 
-.modal-content h2 {
-    margin-top: 0;
-}
-
-.modal-content button {
-    display: block;
-    width: 100%;
-    margin-bottom: 10px;
-}
-.modal-content button:last-child {
-    margin-bottom: 0;
-}
-
 .close-button {
-    color: #aaa;
+    color: #ccc; /* Lighter for dark bg */
     float: right;
-    font-size: 28px;
+    font-size: 32px;
     font-weight: bold;
+    line-height: 0.7; /* Adjust for better vertical alignment */
 }
 
 .close-button:hover,
 .close-button:focus {
-    color: black;
+    color: white;
     text-decoration: none;
     cursor: pointer;
 }
@@ -237,10 +298,11 @@ button:disabled {
 .scrollable-content {
     max-height: 400px;
     overflow-y: auto;
-    white-space: pre-wrap; /* To respect newlines in memory display */
+    white-space: pre-wrap; 
     word-wrap: break-word;
-    background-color: #f9f9f9;
+    background-color: rgba(255, 255, 255, 0.05); /* Very subtle bg for content */
     padding: 10px;
-    border: 1px solid #eee;
+    border: 1px solid rgba(255, 255, 255, 0.2);
     border-radius: 4px;
+    color: white; /* Ensure text is readable */
 }
