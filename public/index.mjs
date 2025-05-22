@@ -24,7 +24,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const characterEditSection = document.getElementById('character-edit-section');
     const generatedPersonalityTextarea = document.getElementById('generatedPersonality');
     const saveEditedPersonalityButton = document.getElementById('saveEditedPersonality');
-    const continueToGameButtonElement = document.getElementById('continueToGameButton'); // Renamed to avoid conflict
+    const continueToGameButtonElement = document.getElementById('continueToGameButton');
     const userDataSubmitButton = document.getElementById('userDataSubmitButton');
 
     // Game Screen Elements
@@ -84,7 +84,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const finalMessage = message || "An unknown error occurred.";
         if (element) {
             element.textContent = finalMessage;
-            // No more alert spam, error is displayed on screen
         } else {
             console.error("Error display element not found. Message:", finalMessage);
             alert(finalMessage); // Fallback alert
@@ -110,10 +109,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return { success: true, status: response.status };
             }
 
-            // For initial checks, a 404 might be expected (e.g. data not found)
-            // and isn't necessarily an "error" to display prominently yet.
             if (isInitialCheck && response.status === 404) {
-                // Try to parse JSON still, backend might send { error: "..." }
                 const responseDataOnError = await response.json().catch(() => ({ notFound: true }));
                 return responseDataOnError; 
             }
@@ -129,24 +125,21 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (!response.ok) {
-                // For initial checks, don't always display error if it's just "not found"
                 if (!isInitialCheck || (responseData && responseData.error && response.status !== 404)) {
                     displayError(errorElement, responseData?.error || `Request failed: ${response.status} ${response.statusText}`);
                 }
-                return responseData; // Return error responseData for initial checks to inspect
+                return responseData;
             }
             return responseData;
         } catch (error) {
             if (!isInitialCheck) displayError(errorElement, `Network error: ${error.message}`);
-            return { networkError: true, message: error.message }; // Indicate network error for initial checks
+            return { networkError: true, message: error.message };
         }
     }
 
     function addMessageToDisplay(role, content) {
         const messageDiv = document.createElement('div');
         messageDiv.classList.add(role === 'user' ? 'user-message' : 'assistant-message');
-        // Sanitize content before setting as textContent to prevent XSS if content could be HTML
-        // For now, assuming content is plain text from LLM. If it could be HTML, use a sanitizer.
         messageDiv.textContent = content;
         messageDisplay.appendChild(messageDiv);
         messageDisplay.scrollTop = messageDisplay.scrollHeight; 
@@ -155,7 +148,6 @@ document.addEventListener('DOMContentLoaded', () => {
     async function changeSprite(spriteName) {
         if (!currentSpriteFolder || !spriteName) {
             console.warn("Attempted to change sprite without folder or name:", currentSpriteFolder, spriteName);
-            // Fallback to a default if possible, or ensure normal.png exists
             if (currentSpriteFolder && !spriteName) spriteName = 'normal.png';
             else return;
         }
@@ -173,7 +165,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 characterSprite.src = `/assets/sprites/${currentSpriteFolder}/normal.png`; 
                 characterSprite.style.opacity = 1;
             };
-        }, 300); // Shorter transition for snappier feel
+        }, 300);
     }
 
     async function initializeApp() {
