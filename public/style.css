@@ -161,9 +161,9 @@ body {
     top: 50%;
     right: 20px; /* Position on the right */
     transform: translateY(-50%);
-    width: 320px; /* Typical phone width */
-    height: 85vh; /* Tall, like a phone screen */
-    max-height: 600px; /* Max height for very tall screens */
+    width: 25%; /* Typical phone width */
+    height: 90%; /* Tall, like a phone screen */
+    /*max-height: 600px;*/ /* Max height for very tall screens */
     background-color: rgba(50, 50, 50, 0.85); /* Darker semi-transparent */
     color: white;
     padding: 15px;
@@ -171,44 +171,44 @@ body {
     z-index: 3;
     box-sizing: border-box;
     display: flex;
-    flex-direction: column; /* Stack messages and input vertically */
+    flex-direction: column;
     box-shadow: 0 5px 20px rgba(0,0,0,0.3);
 }
 
 #message-display {
-    flex-grow: 1; /* Take available space */
+    flex-grow: 1;
     overflow-y: auto;
     margin-bottom: 10px;
     padding-right: 5px; 
     display: flex;
-    flex-direction: column; /* Stack messages */
+    flex-direction: column;
 }
 
 #message-display .user-message,
 #message-display .assistant-message {
     margin-bottom: 10px;
     padding: 8px 12px;
-    border-radius: 15px; /* Bubble-like messages */
+    border-radius: 15px;
     word-wrap: break-word;
-    max-width: 80%; /* Prevent messages from being too wide */
+    max-width: 80%;
     font-size: 0.95em;
 }
 
 #message-display .user-message {
-    align-self: flex-end; /* Align to the right */
+    align-self: flex-end;
     background-color: #007bff; 
-    border-bottom-right-radius: 5px; /* Tail for user */
+    border-bottom-right-radius: 5px;
 }
 
 #message-display .assistant-message {
-    align-self: flex-start; /* Align to the left */
+    align-self: flex-start;
     background-color: #6c757d;
-    border-bottom-left-radius: 5px; /* Tail for assistant */
+    border-bottom-left-radius: 5px;
 }
 
 #input-area {
     display: flex;
-    margin-top: auto; /* Push to bottom */
+    margin-top: auto;
 }
 
 #userMessageInput {
@@ -218,7 +218,7 @@ body {
     background-color: rgba(255, 255, 255, 0.2);
     color: white;
     border: 1px solid rgba(255,255,255,0.4);
-    border-radius: 20px; /* Rounded input */
+    border-radius: 20px;
     padding: 10px 15px;
 }
 #userMessageInput::placeholder {
@@ -232,8 +232,8 @@ body {
     left: 20px;
     z-index: 4;
     display: flex;
-    flex-direction: column; /* Stack buttons vertically */
-    gap: 10px; /* Space between option button and action controls */
+    flex-direction: column; 
+    gap: 10px;
 }
 
 #interaction-controls {
@@ -260,19 +260,6 @@ body {
 
 
 /* Modal Styles - Ensure they use form-box styling if content is form-like */
-.modal {
-    display: none; 
-    position: fixed; 
-    z-index: 100; 
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    overflow: auto; 
-    background-color: rgba(0,0,0,0.7); 
-    padding-top: 60px;
-}
-
 .modal-content {
     margin: 5% auto;
     width: 90%;
@@ -281,31 +268,32 @@ body {
     box-sizing: border-box;
 }
 
+/* Options Modal Specific Button Layout */
+#options-modal .modal-content {
+    text-align: center;
+}
+
 #options-modal .modal-content h2 {
-    margin-bottom: 25px; /* More space below title */
+    margin-bottom: 25px;
 }
 
 #options-modal .modal-content button {
-    display: inline-block; /* Allow side-by-side */
-    width: calc(50% - 10px); /* Two buttons per row, with gap */
-    margin: 5px; /* Overall margin for spacing */
+    display: block;
+    width: calc(100% - 20px);
+    margin: 10px auto;
     box-sizing: border-box;
-    padding: 12px 10px; /* Adjust padding as needed */
-    font-size: 0.95em; /* Slightly smaller font for more text */
-}
-
-#options-modal .modal-content button:nth-last-child(-n+1):first-child, /* If only 1 button */
-#options-modal .modal-content button:nth-last-child(-n+2):first-child:nth-child(odd) /* If 2 buttons, or last of 3 */
- {
-    width: calc(100% - 10px); /* Example: make last button full width if it's alone on a line */
+    padding: 12px 10px; 
+    font-size: 0.95em; 
 }
 
 .close-button {
-    color: #ccc; /* Lighter for dark bg */
-    float: right;
+    color: #ccc; 
+    position: absolute;
+    top: 10px;
+    right: 15px;
     font-size: 32px;
     font-weight: bold;
-    line-height: 0.7; /* Adjust for better vertical alignment */
+    line-height: 1; 
 }
 
 .close-button:hover,
@@ -324,5 +312,5 @@ body {
     padding: 10px;
     border: 1px solid rgba(255, 255, 255, 0.2);
     border-radius: 4px;
-    color: white; /* Ensure text is readable */
+    color: white;
 }
