@@ -270,14 +270,34 @@ body {
     height: 100%;
     overflow: auto; 
     background-color: rgba(0,0,0,0.7); 
+    padding-top: 60px;
 }
 
 .modal-content {
-    /* Inherits .form-box styling if class is applied */
-    margin: 10% auto; 
-    width: 80%;
-    max-width: 600px;
+    margin: 5% auto;
+    width: 90%;
+    max-width: 500px;
     position: relative;
+    box-sizing: border-box;
+}
+
+#options-modal .modal-content h2 {
+    margin-bottom: 25px; /* More space below title */
+}
+
+#options-modal .modal-content button {
+    display: inline-block; /* Allow side-by-side */
+    width: calc(50% - 10px); /* Two buttons per row, with gap */
+    margin: 5px; /* Overall margin for spacing */
+    box-sizing: border-box;
+    padding: 12px 10px; /* Adjust padding as needed */
+    font-size: 0.95em; /* Slightly smaller font for more text */
+}
+
+#options-modal .modal-content button:nth-last-child(-n+1):first-child, /* If only 1 button */
+#options-modal .modal-content button:nth-last-child(-n+2):first-child:nth-child(odd) /* If 2 buttons, or last of 3 */
+ {
+    width: calc(100% - 10px); /* Example: make last button full width if it's alone on a line */
 }
 
 .close-button {

@@ -3,7 +3,7 @@ import { updateTextFile, updateMemoryFile } from './Write_To.mjs';
 import { readTextFile, readMemoryFile } from './Read_File.mjs';
 import { generateInstructionPrompt,  generateSpritePrompt, generatePersonalityPrompt, generateDiaryPrompt } from './Generate_Prompt.mjs';
 import { readContents, pickValidSprite } from './get_images.mjs';
-import ask_LLM from './LLM_Request.mjs';
+import { ask_LLM, isApiKeyEffectivelyConfigured } from './LLM_Request.mjs';
 
 const router = Router();
 
@@ -443,6 +443,17 @@ router.get('/api/personality', async (req, res) => {
   } catch (error) {
     // console.error("Error in GET /api/personality:", error.message);
     res.status(404).json({ error: 'Character profile not found or is invalid.' });
+  }
+});
+
+// GET Request to check API Key configuration status
+router.get('/api/status/api_key', (req, res) => {
+  if (isApiKeyEffectivelyConfigured()) {
+    res.status(200).json({ configured: true });
+  } else {
+    // Use 404 or another appropriate status if "not configured" is the primary meaning
+    res.status(200).json({ configured: false, message: 'API Key not configured or is invalid.' });
+    // Using 200 for "successfully checked, result is false" rather than 404 "resource not found"
   }
 });
 

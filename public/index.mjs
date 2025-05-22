@@ -93,7 +93,7 @@ document.addEventListener('DOMContentLoaded', () => {
          else if (element) element.style.display = 'none';
     }
 
-    async function apiRequest(url, method, body, errorElement) {
+    async function apiRequest(url, method, body, errorElement, isInitialCheck = false) {
         try {
             const options = {
                 method: method,
@@ -104,37 +104,41 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             const response = await fetch(url, options);
             
-            // Clear previous error before processing new response
             if (errorElement) displayError(errorElement, '');
 
-
-            // Handle non-JSON responses for 204
             if (response.status === 204) {
                 return { success: true, status: response.status };
             }
 
+            // For initial checks, a 404 might be expected (e.g. data not found)
+            // and isn't necessarily an "error" to display prominently yet.
+            if (isInitialCheck && response.status === 404) {
+                // Try to parse JSON still, backend might send { error: "..." }
+                const responseDataOnError = await response.json().catch(() => ({ notFound: true }));
+                return responseDataOnError; 
+            }
+
             const responseData = await response.json().catch(e => {
-                // console.error("Error parsing JSON response:", e, "for URL:", url);
-                return { parseError: true, status: response.status, text: response.text() }; // Try to get text if JSON fails
+                return { parseError: true, status: response.status, text: response.text() }; 
             });
 
             if (responseData.parseError) {
                 const text = await responseData.text;
-                // console.error(`Response from ${url} was not valid JSON. Status: ${responseData.status}. Body: ${text}`);
-                displayError(errorElement, `Server returned non-JSON response (Status ${responseData.status}). Check console.`);
+                if (!isInitialCheck) displayError(errorElement, `Server returned non-JSON response (Status ${responseData.status}).`);
                 return null;
             }
 
-
             if (!response.ok) {
-                const errorMsg = responseData?.error || `Request failed: ${response.status} ${response.statusText}`;
-                displayError(errorElement, errorMsg);
-                return null;
+                // For initial checks, don't always display error if it's just "not found"
+                if (!isInitialCheck || (responseData && responseData.error && response.status !== 404)) {
+                    displayError(errorElement, responseData?.error || `Request failed: ${response.status} ${response.statusText}`);
+                }
+                return responseData; // Return error responseData for initial checks to inspect
             }
             return responseData;
         } catch (error) {
-            displayError(errorElement, `Network error: ${error.message}`);
-            return null;
+            if (!isInitialCheck) displayError(errorElement, `Network error: ${error.message}`);
+            return { networkError: true, message: error.message }; // Indicate network error for initial checks
         }
     }
 
@@ -173,39 +177,56 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function initializeApp() {
-        // Try to fetch API key status (or assume it needs to be set first)
-        // For simplicity, we'll always show API key form if no skip,
-        // but a real check for API_KEY.key in user_config.json via a backend
-        // endpoint would be more robust for skipping API key step.
-        // Here, we'll check user data, then character data.
+        // 1. Check API Key Status
+        const apiKeyStatus = await apiRequest('/api/status/api_key', 'GET', null, null, true);
 
-        const userData = await apiRequest('/api/user_data', 'GET', null, null); // No error display here initially
-        if (userData && userData.name) {
-            currentUserData = userData;
-            // User data exists, now check character profile
-            const charProfile = await apiRequest('/api/personality', 'GET', null, null);
-            if (charProfile && charProfile.profile && charProfile.general?.sprite) {
-                currentCharacterPersonalityText = charProfile.profile;
-                currentCharacterSetupData = charProfile.general;
-                currentSpriteFolder = charProfile.general.sprite;
+        if (!apiKeyStatus || apiKeyStatus.networkError || !apiKeyStatus.configured) {
+            // If network error, or explicitly not configured, or status check fails unexpectedly
+            showScreen('apiKey');
+            if (apiKeyStatus && apiKeyStatus.message && !apiKeyStatus.configured) {
+                // Optionally display a subtle message if server said "not configured"
+                console.info("API Key status:", apiKeyStatus.message);
+            }
+            return;
+        }
+
+        // 2. API Key is configured, check User Data
+        // Pass `true` for isInitialCheck to apiRequest
+        const userDataResponse = await apiRequest('/api/user_data', 'GET', null, null, true); 
+        
+        // userDataResponse will be null on network error, or an object.
+        // If 404, it might have { error: "User data not found." } or { notFound: true }
+        // If 200, it's the user data.
+        if (userDataResponse && userDataResponse.name && !userDataResponse.error) { // Ensure it's actual data, not an error obj
+            currentUserData = userDataResponse;
+
+            // 3. User Data exists, check Character Profile
+            const charProfileResponse = await apiRequest('/api/personality', 'GET', null, null, true);
+            if (charProfileResponse && charProfileResponse.profile && charProfileResponse.general?.sprite && !charProfileResponse.error) {
+                currentCharacterPersonalityText = charProfileResponse.profile;
+                currentCharacterSetupData = charProfileResponse.general; // Store the whole general object
+                currentSpriteFolder = charProfileResponse.general.sprite;
                 
-                // Pre-fill for options menu later
                 generatedPersonalityTextarea.value = currentCharacterPersonalityText;
                 forms.characterCreate.name.value = currentCharacterSetupData.name || '';
                 forms.characterCreate.looks.value = currentCharacterSetupData.looks || '';
-                forms.characterCreate.personality.value = currentCharacterSetupData.description || ''; // Assuming 'description' key if available
+                // The 'personality' in characterCreate form is the user's *description input*, not the generated profile
+                // So, we don't pre-fill it from generatedPersonalityTextarea here unless that's desired for editing.
+                // For now, assume currentCharacterSetupData might hold the original input if we stored it.
+                // If not, it will be blank if editing an existing profile from scratch.
+                forms.characterCreate.personality.value = currentCharacterSetupData.rawPersonalityInput || ''; // Hypothetical field
                 forms.characterCreate.language.value = currentCharacterSetupData.language || 'English';
                 forms.characterCreate.sprite.value = currentSpriteFolder || '';
                 
-                await goToGameScreen(true); // Pass flag to indicate loading existing game
+                await goToGameScreen(true);
             } else {
-                // User data exists, but no character profile, go to character setup
-                prefillUserDataForm(); // Pre-fill user data form if going there
+                // User data exists, but no character profile
+                prefillUserDataForm(); // Ensure user data form is pre-filled for context if they go back
                 showScreen('characterSetup');
             }
         } else {
-            // No user data (or API key implies this too), start with API key
-            showScreen('apiKey');
+            // API Key OK, but No User Data (or error fetching it other than network)
+            showScreen('userData');
         }
     }
     
@@ -259,18 +280,19 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         const formData = new FormData(forms.apiKey);
         const data = Object.fromEntries(formData.entries());
-        const result = await apiRequest('/api/api_key', 'POST', data, errorMessages.apiKey);
-        if (result && result.model) {
-            // API Key saved, now check for user data
-            const userData = await apiRequest('/api/user_data', 'GET', null, errorMessages.userData);
-            if (userData && userData.name) {
-                currentUserData = userData;
-                const charProfile = await apiRequest('/api/personality', 'GET', null, errorMessages.characterCreate);
-                if (charProfile && charProfile.profile && charProfile.general?.sprite) {
-                    currentCharacterPersonalityText = charProfile.profile;
-                    currentCharacterSetupData = charProfile.general;
-                    currentSpriteFolder = charProfile.general.sprite;
-                    generatedPersonalityTextarea.value = currentCharacterPersonalityText; // For options menu
+        // Pass errorMessages.apiKey for displaying errors directly related to this form submission
+        const result = await apiRequest('/api/api_key', 'POST', data, errorMessages.apiKey); 
+        if (result && result.model) { // POST to /api/api_key returns the saved data
+            // API Key saved, now re-evaluate the flow as if starting initializeApp's checks
+            const userDataResponse = await apiRequest('/api/user_data', 'GET', null, null, true);
+            if (userDataResponse && userDataResponse.name && !userDataResponse.error) {
+                currentUserData = userDataResponse;
+                const charProfileResponse = await apiRequest('/api/personality', 'GET', null, null, true);
+                if (charProfileResponse && charProfileResponse.profile && charProfileResponse.general?.sprite && !charProfileResponse.error) {
+                    currentCharacterPersonalityText = charProfileResponse.profile;
+                    currentCharacterSetupData = charProfileResponse.general;
+                    currentSpriteFolder = charProfileResponse.general.sprite;
+                    generatedPersonalityTextarea.value = currentCharacterPersonalityText;
                     await goToGameScreen(true);
                 } else {
                     prefillUserDataForm();
@@ -295,26 +317,22 @@ document.addEventListener('DOMContentLoaded', () => {
             result = await apiRequest('/api/user_data', 'POST', data, errorMessages.userData);
         }
 
-        if (result && (result.name || (result.status === 201 || result.status === 200) ) ) {
-             // For POST, result is the data. For PATCH, result might just be success or updated data
-            if (result.name) currentUserData = result; // Update if full data is returned
-            else currentUserData = {...currentUserData, ...data}; // Merge if only success status
-
+        if (result && (result.name || (result.status === 201 || result.status === 200) ) && !result.error ) {
+            if (result.name) currentUserData = result; 
+            else currentUserData = {...currentUserData, ...data}; 
 
             if (isUserDataEditing) {
                 alert('User data updated successfully!');
                 optionsModal.style.display = 'none'; 
                 isUserDataEditing = false;
                 userDataSubmitButton.textContent = 'Save User Data';
-                // No screen change, stay in game or wherever options was opened from
             } else {
                 alert('User data saved successfully!');
-                // Now check for character profile
-                const charProfile = await apiRequest('/api/personality', 'GET', null, errorMessages.characterCreate);
-                if (charProfile && charProfile.profile && charProfile.general?.sprite) {
-                    currentCharacterPersonalityText = charProfile.profile;
-                    currentCharacterSetupData = charProfile.general;
-                    currentSpriteFolder = charProfile.general.sprite;
+                const charProfileResponse = await apiRequest('/api/personality', 'GET', null, null, true);
+                if (charProfileResponse && charProfileResponse.profile && charProfileResponse.general?.sprite && !charProfileResponse.error) {
+                    currentCharacterPersonalityText = charProfileResponse.profile;
+                    currentCharacterSetupData = charProfileResponse.general;
+                    currentSpriteFolder = charProfileResponse.general.sprite;
                     generatedPersonalityTextarea.value = currentCharacterPersonalityText;
                     await goToGameScreen(true);
                 } else {

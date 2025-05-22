@@ -53,14 +53,14 @@
             <form id="characterCreateForm">
                 <label for="charName">Character Name*:</label>
                 <input type="text" id="charName" name="name" placeholder="Character's Name" required><br>
-                <label for="charLooks">Character Looks/Appearance*:</label>
-                <input type="text" id="charLooks" name="looks" placeholder="e.g., girl with pink hair, boy with glasses" required><br>
+                <label for="charLooks">Character Gender*:</label>
+                <input type="text" id="charLooks" name="looks" placeholder="e.g., female, male, non-binary" required><br>
                 <label for="charPersonalityDesc">Character Personality Description*:</label>
                 <textarea id="charPersonalityDesc" name="personality" rows="3" placeholder="Describe their personality" required></textarea><br>
                 <label for="charLanguage">Character Language*:</label>
                 <input type="text" id="charLanguage" name="language" value="English" placeholder="e.g., English, Spanish" required><br>
-                <label for="charSpriteFolder">Sprite Folder Name*:</label>
-                <input type="text" id="charSpriteFolder" name="sprite" placeholder="e.g., default_female, mod" required><br>
+                <label for="charSpriteFolder">Sprite Folder To Use*:</label>
+                <input type="text" id="charSpriteFolder" name="sprite" placeholder="default_male, default_female or mod" required><br>
                 <button type="submit">Generate Character Profile</button>
             </form>
             <p class="error-message" id="characterCreateError"></p>
