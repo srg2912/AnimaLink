@@ -314,3 +314,90 @@ body {
     border-radius: 4px;
     color: white;
 }
+
+/* For inline labels with checkboxes */
+.inline-label {
+    display: inline;
+    margin-bottom: 0;
+    font-weight: normal;
+    margin-left: 5px;
+    vertical-align: middle;
+}
+.form-box div > input[type="checkbox"] { /* Target checkbox inside a div for spacing */
+    margin-bottom: 18px;
+    vertical-align: middle;
+}
+
+
+#input-area {
+    display: flex;
+    margin-top: auto;
+    align-items: center; /* Align items vertically for image preview */
+}
+
+.attach-button {
+    padding: 10px 12px; /* Adjust padding for icon button */
+    font-size: 1.2em; /* Make icon slightly larger */
+    margin-right: 8px;
+}
+
+#image-preview-container {
+    display: flex; /* Changed from 'none' by JS */
+    align-items: center;
+    margin-right: 8px;
+    padding: 5px;
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 5px;
+}
+
+#imagePreview {
+    max-width: 40px; /* Small preview */
+    max-height: 40px;
+    border-radius: 3px;
+    margin-right: 5px;
+}
+
+#removeImagePreviewButton {
+    background: transparent;
+    border: none;
+    color: white;
+    font-size: 1em;
+    cursor: pointer;
+    padding: 2px 5px;
+}
+
+
+#message-display .message-image-thumbnail {
+    display: block; /* Or inline-block if you want text to wrap */
+    max-width: 150px; /* Adjust as needed */
+    max-height: 150px;
+    border-radius: 8px;
+    margin-top: 8px;
+    border: 1px solid rgba(255,255,255,0.3);
+}
+
+
+/* Ensure options modal checkbox label is styled correctly */
+#options-modal .modal-content label.inline-label {
+    color: white; /* If not already inherited */
+}
+#options-modal .modal-content input[type="checkbox"] {
+    margin-right: 5px; /* Space between checkbox and label */
+    vertical-align: middle;
+}
+#options-modal .modal-content div { /* Container for checkbox and label */
+    margin-bottom: 15px;
+    text-align: left;
+    padding-left: 10px; /* Align with buttons if they have margin auto */
+}
+
+
+/* Memory Viewer Modal Image Thumbnail */
+#memoryViewerContent .message-image-thumbnail {
+    display: block;
+    max-width: 200px; /* Larger preview in modal */
+    max-height: 200px;
+    border-radius: 5px;
+    margin-top: 10px;
+    border: 1px solid rgba(255,255,255,0.2);
+}

@@ -1,30 +1,109 @@
+// Routers.mjs
 import { Router } from 'express';
+import fs from 'node:fs/promises'; // For reading user_config for PATCH
+import path from 'node:path';
+import { fileURLToPath } from 'url';
+
 import { updateTextFile, updateMemoryFile } from './Write_To.mjs';
 import { readTextFile, readMemoryFile } from './Read_File.mjs';
 import { generateInstructionPrompt,  generateSpritePrompt, generatePersonalityPrompt, generateDiaryPrompt } from './Generate_Prompt.mjs';
-import { readContents, pickValidSprite } from './get_images.mjs';
-import { ask_LLM, isApiKeyEffectivelyConfigured } from './LLM_Request.mjs';
+import { readContents, pickValidSprite } from './get_images.mjs'; // Corrected: was get_images.mjs
+import { ask_LLM, isApiKeyEffectivelyConfigured, getVisionSupportStatus, reloadConfigAndReinitializeClient, forceReinitializeOpenAI } from './LLM_Request.mjs';
 
 const router = Router();
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirnameSrc = path.dirname(__filename);
+const PROJECT_ROOT = path.resolve(__dirnameSrc, '..');
+
+// Define paths based on PROJECT_ROOT
+const USER_CONFIG_PATH = path.join(PROJECT_ROOT, 'config', 'user_config.json');
+const USER_DATA_PATH = path.join(PROJECT_ROOT, 'config', 'user_data.json');
+const PERSONALITY_PATH = path.join(PROJECT_ROOT, 'memory', 'personality.txt');
+const GENERAL_MEMORY_PATH = path.join(PROJECT_ROOT, 'memory', 'general.json');
+const SHORT_TERM_MEMORY_PATH = path.join(PROJECT_ROOT, 'memory', 'short_term.json');
+const LONG_TERM_MEMORY_PATH = path.join(PROJECT_ROOT, 'memory', 'long_term.json');
+const ASSETS_SPRITES_BASE_PATH = path.join(PROJECT_ROOT, 'assets', 'sprites');
+const BACKUPS_DIR_PATH = path.join(PROJECT_ROOT, 'backups');
+
+
 // POST Request to get user's API
 router.post('/api/api_key', async (req, res) => {
-  const { model, key, endpoint } = req.body;
+  const { model, key, endpoint, supports_vision } = req.body; // Added supports_vision
 
   if (!model || !key || !endpoint) return res.status(400).json({ error: 'One or more fields are empty.' });
 
   try {
-    const jsonData = JSON.stringify({ 'model': model, 'key': key, 'base_url': endpoint, 'type': 'module' }, null, 2);
-    await updateTextFile(jsonData, './config/user_config.json', 'w');
-    res.status(201).json({ 'model': model, 'key': key, 'base_url': endpoint, 'type': 'module' });
+    const configData = { 
+        'model': model, 
+        'key': key, 
+        'base_url': endpoint, 
+        'type': 'module',
+        'supports_vision': !!supports_vision // Ensure boolean
+    };
+    const jsonData = JSON.stringify(configData, null, 2);
+    await updateTextFile(jsonData, USER_CONFIG_PATH, 'w');
+    forceReinitializeOpenAI(); // Re-initialize LLM client with new config
+    res.status(201).json(configData);
   } catch (error) {
     console.error(error);
     res.status(400).json({ error: 'An error was produced when saving the data.' });
   }
 });
 
+// GET Request to check API Key configuration status and vision support
+router.get('/api/status/api_key', (req, res) => {
+  const configured = isApiKeyEffectivelyConfigured();
+  const visionSupport = getVisionSupportStatus();
+  if (configured) {
+    res.status(200).json({ configured: true, supports_vision: visionSupport });
+  } else {
+    res.status(200).json({ configured: false, supports_vision: visionSupport, message: 'API Key not configured or is invalid.' });
+  }
+});
+
+// PATCH request to update vision support specifically
+router.patch('/api/config/vision', async (req, res) => {
+    const { supports_vision } = req.body;
+
+    if (typeof supports_vision !== 'boolean') {
+        return res.status(400).json({ error: 'Invalid value for supports_vision. Must be boolean.' });
+    }
+
+    try {
+        let currentConfig = {};
+        try {
+            const configFileContent = await readTextFile(USER_CONFIG_PATH);
+            if (configFileContent && configFileContent.trim() !== '') {
+                currentConfig = JSON.parse(configFileContent);
+            }
+        } catch (readError) {
+            // File might not exist, which is fine, we'll create it.
+            console.warn(`Could not read ${USER_CONFIG_PATH} before patching vision, will create/overwrite.`);
+        }
+        
+        currentConfig.supports_vision = supports_vision;
+        const jsonData = JSON.stringify(currentConfig, null, 2);
+        await updateTextFile(jsonData, USER_CONFIG_PATH, 'w');
+        
+        // Reload LLM client config
+        const reloaded = reloadConfigAndReinitializeClient();
+        if (!reloaded && currentConfig.key) { // only warn if key was set, otherwise it's expected to fail reinit
+             console.warn("LLM client failed to re-initialize after vision config update. May need full API key setup if not done.");
+        }
+
+        res.status(200).json({ message: 'Vision support updated successfully.', supports_vision: supports_vision });
+
+    } catch (error) {
+        console.error('Error updating vision support:', error);
+        res.status(500).json({ error: 'Failed to update vision support configuration.' });
+    }
+});
+
+
 // POST Request to get user's data
 router.post('/api/user_data', async (req, res) => {
+  // ... (rest of the code using USER_DATA_PATH)
   const { name, 
     gender, 
     pronouns, 
@@ -49,7 +128,7 @@ router.post('/api/user_data', async (req, res) => {
       "personality": personality
     };
     const jsonData = JSON.stringify(data, null, 2);
-    await updateTextFile(jsonData, './config/user_data.json', 'w');
+    await updateTextFile(jsonData, USER_DATA_PATH, 'w');
     res.status(201).json(data);
   } catch (error) {
     console.error(error);
@@ -68,8 +147,10 @@ router.patch('/api/user_data', async (req, res) => {
     personality = '' 
   } = req.body;
 
-  const currentUserData = await readTextFile('./config/user_data.json').then(JSON.parse);
-  if (!currentUserData) return res.status(400).json({ error: 'No current data to edit.' });
+  const currentUserDataString = await readTextFile(USER_DATA_PATH);
+  if (!currentUserDataString) return res.status(400).json({ error: 'No current data to edit.' });
+  const currentUserData = JSON.parse(currentUserDataString);
+
 
   try {
     const data = {
@@ -82,14 +163,17 @@ router.patch('/api/user_data', async (req, res) => {
       "personality": personality
     };
     for (const attribute in data) {
-      currentUserData[attribute] = data[attribute];
+      if (data[attribute] !== '' || attribute === 'name' || attribute === 'gender' || attribute === 'pronouns') { // Allow clearing optional fields, but not required ones
+        currentUserData[attribute] = data[attribute];
+      }
     };
-    if (!currentUserData.name) throw new Error('Cannot leave name empty.');
-    if (!currentUserData.gender) throw new Error('Cannot leave gender empty.');
-    if (!currentUserData.pronouns) throw new Error('Cannot leave pronouns empty.');
+    if (!currentUserData.name) return res.status(400).json({ error: 'Cannot leave name empty.'}); // Changed to return 400
+    if (!currentUserData.gender) return res.status(400).json({ error: 'Cannot leave gender empty.'});
+    if (!currentUserData.pronouns) return res.status(400).json({ error: 'Cannot leave pronouns empty.'});
+
     const jsonData = JSON.stringify(currentUserData, null, 2);
-    await updateTextFile(jsonData, './config/user_data.json', 'w');
-    res.status(201).json(currentUserData);
+    await updateTextFile(jsonData, USER_DATA_PATH, 'w');
+    res.status(200).json(currentUserData); // 200 for update
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Couldn\'t save user\'s data.' });
@@ -99,7 +183,7 @@ router.patch('/api/user_data', async (req, res) => {
 // DELETE Request to delete user's data
 router.delete('/api/user_data', async (req, res) => {
   try {
-    await updateTextFile('', './config/user_data.json', 'w');
+    await updateTextFile('', USER_DATA_PATH, 'w'); // Use USER_DATA_PATH
     res.status(204).json({ message: 'Data deleted succesfully.' });
   } catch (e) {
     console.error(e);
@@ -116,9 +200,9 @@ router.post('/api/personality', async (req, res) => {
   try {
     const personalityPrompt = generatePersonalityPrompt (name, looks, personality, language);
     const result = await ask_LLM(personalityPrompt);
-    await updateTextFile(result, './memory/personality.txt', 'w');
-    const jsonData = JSON.stringify({ 'name': name, 'looks': looks, 'sprite': sprite}, null, 2);
-    await updateTextFile(jsonData, './memory/general.json', 'w');
+    await updateTextFile(result, PERSONALITY_PATH, 'w');
+    const jsonData = JSON.stringify({ 'name': name, 'looks': looks, 'sprite': sprite, 'language': language, 'rawPersonalityInput': personality }, null, 2); // Store language and raw personality input too
+    await updateTextFile(jsonData, GENERAL_MEMORY_PATH, 'w');
     res.status(201).json({ characterProfile: result });
   } catch (error) {
     console.error(error);
@@ -130,89 +214,114 @@ router.post('/api/personality', async (req, res) => {
 router.patch('/api/personality', async (req, res) => {
   const { edit } = req.body;
   try {
-    if (!edit) {
-      throw new Error('Cannot leave personality empty.');
+    if (!edit || edit.trim() === '') { // check for empty or whitespace only
+      return res.status(400).json({ error: 'Cannot leave personality empty.' });
     };
-    await updateTextFile(edit, './memory/personality.txt', 'w');
-    res.status(201).json({ characterProfile: edit });
+    await updateTextFile(edit, PERSONALITY_PATH, 'w');
+    res.status(200).json({ characterProfile: edit }); // 200 for update
   } catch (error) {
     console.error(error);
     res.status(400).json({ error: 'Failed to edit character\'s personality.' });
   }
 });
 
-// POST Request to send a message to the character
+// POST Request to send a message to the character (MODIFIED FOR IMAGE)
 router.post('/api/message', async (req, res) => {
-  const { message } = req.body;
-  if (!message) return res.status(400).json({ error: 'Message required.' }); // Validating message
+  const { message, image_data } = req.body; // image_data is base64 string
+  if (!message && !image_data) return res.status(400).json({ error: 'Message or image required.' });
+  if (!message && image_data) { // If only image, provide a default message
+      // message = "User sent an image."; // Or "What do you see in this image?" - Handled by LLM prompt structure
+  }
 
-  const personality =  await readTextFile('./memory/personality.txt');
-  if (!personality) return res.status(400).json({ error: 'Personality required.' }); // Validating personality
 
-  const previousMessages = await readMemoryFile('./memory/short_term.json');
-  const user_data = await readTextFile('./config/user_data.json').then(JSON.parse); 
-  const instruction = generateInstructionPrompt (personality, user_data);  // Generating prompt for character's behavior
-  const previousEntries = await readMemoryFile('./memory/long_term.json');
+  const personality =  await readTextFile(PERSONALITY_PATH);
+  if (!personality) return res.status(400).json({ error: 'Personality required.' });
+
+  const previousMessages = await readMemoryFile(SHORT_TERM_MEMORY_PATH);
+  const userDataString = await readTextFile(USER_DATA_PATH);
+  if (!userDataString) return res.status(400).json({ error: 'User data required.'});
+  const user_data = JSON.parse(userDataString);
+  
+  const instruction = generateInstructionPrompt (personality, user_data);
+  const previousEntries = await readMemoryFile(LONG_TERM_MEMORY_PATH);
+
+  let llmPromptContent;
+  if (image_data) {
+    llmPromptContent = [];
+    if (message) { // Add text part if message exists
+        llmPromptContent.push({ type: "text", text: message });
+    } else { // If only image, add a generic text part
+        llmPromptContent.push({ type: "text", text: "The user sent this image. Describe it or react to it." });
+    }
+    llmPromptContent.push({ type: "image_url", image_url: { url: image_data } });
+  } else {
+    llmPromptContent = message;
+  }
 
   try {
-    const result = await ask_LLM(message, instruction, previousMessages, previousEntries); // Character's response
-    const general = await readTextFile('./memory/general.json').then(JSON.parse); 
-    const spritesString = await readContents(`./assets/sprites/${general.sprite}`) // Gets the character's sprites
+    const result = await ask_LLM(llmPromptContent, instruction, previousMessages, previousEntries); 
+    
+    const generalString = await readTextFile(GENERAL_MEMORY_PATH);
+    if(!generalString) return res.status(400).json({ error: "Character general info not found."});
+    const general = JSON.parse(generalString);
+
+    const spritesString = await readContents(path.join(ASSETS_SPRITES_BASE_PATH, general.sprite)) 
     const spritePrompt = generateSpritePrompt (result, spritesString); 
-    const chosenSprite = await ask_LLM(spritePrompt); // Chooses sprite
-    const validSprite = await pickValidSprite(chosenSprite, `./assets/sprites/${general.sprite}`)
-    const lastId = previousMessages[previousMessages.length - 1]?.id ?? 0; // Gets the last id, returns 0 if there's none
-    // Push new interaction to memory
-    const userMessage = {
+    const chosenSprite = await ask_LLM(spritePrompt); 
+    const validSprite = await pickValidSprite(chosenSprite, path.join(ASSETS_SPRITES_BASE_PATH, general.sprite));
+    
+    const lastId = previousMessages[previousMessages.length - 1]?.id ?? 0;
+    
+    const userMessageEntry = {
       id: lastId + 1,
       role: 'user',
-      content: message,
+      content: message || "[Image sent]", // Use placeholder if only image
+      image_data: image_data || null, // Store base64 image data
       timestamp: new Date().toISOString()
     };
-    const assistantMessage = {
+    const assistantMessageEntry = {
       id: lastId + 2,
       role: 'assistant',
       content: result,
       sprite: validSprite,
       timestamp: new Date().toISOString()
     };
-    previousMessages.push(userMessage, assistantMessage);
-    await updateMemoryFile('./memory/short_term.json', previousMessages);
+    previousMessages.push(userMessageEntry, assistantMessageEntry);
+    await updateMemoryFile(SHORT_TERM_MEMORY_PATH, previousMessages);
 
-    // Generate diary every n messages, n must be even because assistant has even number Ids
-    if (assistantMessage.id % 30 === 0) {
+    // Diary and Backup logic (remains the same)
+    if (assistantMessageEntry.id % 30 === 0) {
       try {
         const diaryPrompt = generateDiaryPrompt(personality);
-        const contextWindow = previousMessages.slice(-8);
-        const diaryEntry = await ask_LLM(diaryPrompt, '', contextWindow);
+        const contextWindow = previousMessages.slice(-8); // Use more context if possible/needed
+        const diaryEntryContent = await ask_LLM(diaryPrompt, '', contextWindow);
         const lastEntryId = previousEntries[previousEntries.length - 1]?.id ?? 0;
         previousEntries.push({
           id: lastEntryId + 1,
-          role: 'assistant',
-          content: 'Diary entry: ' + diaryEntry,
+          role: 'assistant', // Or 'system' or 'diary_entry' for clarity
+          content: 'Diary entry: ' + diaryEntryContent,
           timestamp: new Date().toISOString()
         });
-        await updateMemoryFile('./memory/long_term.json', previousEntries);
+        await updateMemoryFile(LONG_TERM_MEMORY_PATH, previousEntries);
       } catch (error) {
         console.error('Error during diary entry generation: ', error);
       }
     }
 
-    // Generate a save file every n messages
-    if (assistantMessage.id % 10 === 0) {
+    if (assistantMessageEntry.id % 10 === 0) {
       try {
-        const general = await readTextFile('./memory/general.json').then(JSON.parse);
-        const shortTerm = await readTextFile('./memory/short_term.json').then(JSON.parse);
-        const longTerm = await readTextFile('./memory/long_term.json').then(JSON.parse);
-        const personality = await readTextFile('./memory/personality.txt')
-        const backupObject = { general: general, shortTerm: shortTerm, longTerm: longTerm, personality: personality };
-        await updateMemoryFile(`./backups/${general.name}_backup.json`, backupObject);
+        const generalData = JSON.parse(await readTextFile(GENERAL_MEMORY_PATH)); // Re-read general data
+        const shortTermData = JSON.parse(await readTextFile(SHORT_TERM_MEMORY_PATH));
+        const longTermData = JSON.parse(await readTextFile(LONG_TERM_MEMORY_PATH));
+        const personalityData = await readTextFile(PERSONALITY_PATH);
+        const backupObject = { general: generalData, shortTerm: shortTermData, longTerm: longTermData, personality: personalityData };
+        await updateMemoryFile(path.join(BACKUPS_DIR_PATH, `${generalData.name}_backup.json`), backupObject);
       } catch (error) {
         console.error('Error during backup generation: ', error);
       }
     }    
 
-    res.status(201).json(previousMessages[previousMessages.length - 1]);
+    res.status(201).json(assistantMessageEntry); // Send back assistant's response
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'LLM request failed.' });
@@ -224,83 +333,91 @@ router.post('/api/interact/:body_part', async (req, res) => {
   const bodyPart = req.params.body_part;
   if (!bodyPart) return res.status(400).json({ error: 'Body part not specified.' })
   
-  let message = ''
+  let interactionMessage = '' // Renamed from 'message' to avoid confusion
   if (bodyPart === 'hug') {
-    message = 'System Message: The user hugged your sprite.';
+    interactionMessage = 'System Message: The user hugged your sprite.';
   } else if (bodyPart === 'tickle') {
-    message = 'System Message: The user tickled your sprite on the ribs.';
+    interactionMessage = 'System Message: The user tickled your sprite on the ribs.';
   } else if (bodyPart === 'kiss') {
-    message = 'System Message: The user kissed your sprite.';
+    interactionMessage = 'System Message: The user kissed your sprite.';
   } else {
-    message = `System Message: The user stroke your ${bodyPart} by interacting with your sprite.`;
+    interactionMessage = `System Message: The user stroke your ${bodyPart} by interacting with your sprite.`;
   };
 
-  if (!message) return res.status(500).json({ error: 'couldn\' perform action.' })
+  if (!interactionMessage) return res.status(500).json({ error: 'couldn\' perform action.' })
 
-  const personality =  await readTextFile('./memory/personality.txt');
+  const personality =  await readTextFile(PERSONALITY_PATH);
   if (!personality) return res.status(400).json({ error: 'Personality required.' });
 
-  const previousMessages = await readMemoryFile('./memory/short_term.json');
-  const user_data = await readTextFile('./config/user_data.json').then(JSON.parse); 
+  const previousMessages = await readMemoryFile(SHORT_TERM_MEMORY_PATH);
+  const userDataString = await readTextFile(USER_DATA_PATH);
+  if (!userDataString) return res.status(400).json({ error: 'User data required.'});
+  const user_data = JSON.parse(userDataString);
+
   const instruction = generateInstructionPrompt (personality, user_data); 
-  const previousEntries = await readMemoryFile('./memory/long_term.json');
+  const previousEntries = await readMemoryFile(LONG_TERM_MEMORY_PATH);
 
   try {
-    const result = await ask_LLM(message, instruction, previousMessages, previousEntries);
-    const general = await readTextFile('./memory/general.json').then(JSON.parse); 
-    const spritesString = await readContents(`./assets/sprites/${general.sprite}`)
+    const result = await ask_LLM(interactionMessage, instruction, previousMessages, previousEntries);
+    const generalString = await readTextFile(GENERAL_MEMORY_PATH);
+    if(!generalString) return res.status(400).json({ error: "Character general info not found."});
+    const general = JSON.parse(generalString);
+
+    const spritesString = await readContents(path.join(ASSETS_SPRITES_BASE_PATH, general.sprite));
     const spritePrompt = generateSpritePrompt (result, spritesString); 
     const chosenSprite = await ask_LLM(spritePrompt);
-    const validSprite = await pickValidSprite(chosenSprite, `./assets/sprites/${general.sprite}`)
+    const validSprite = await pickValidSprite(chosenSprite, path.join(ASSETS_SPRITES_BASE_PATH, general.sprite));
     const lastId = previousMessages[previousMessages.length - 1]?.id ?? 0;
-    const userMessage = {
+    
+    const userMessageEntry = { // System interaction shown as user message for flow
       id: lastId + 1,
       role: 'user',
-      content: `System: User interaction.`,
+      content: `System: User interacted (${bodyPart}).`, // More descriptive
       timestamp: new Date().toISOString()
     };
-    const assistantMessage = {
+    const assistantMessageEntry = {
       id: lastId + 2,
       role: 'assistant',
       content: result,
       sprite: validSprite,
       timestamp: new Date().toISOString()
     };
-    previousMessages.push(userMessage, assistantMessage);
-    await updateMemoryFile('./memory/short_term.json', previousMessages);
+    previousMessages.push(userMessageEntry, assistantMessageEntry);
+    await updateMemoryFile(SHORT_TERM_MEMORY_PATH, previousMessages);
 
-    if (assistantMessage.id % 30 === 0) {
+    // Diary and Backup logic (remains the same)
+     if (assistantMessageEntry.id % 30 === 0) {
       try {
         const diaryPrompt = generateDiaryPrompt(personality);
         const contextWindow = previousMessages.slice(-8);
-        const diaryEntry = await ask_LLM(diaryPrompt, '', contextWindow);
+        const diaryEntryContent = await ask_LLM(diaryPrompt, '', contextWindow);
         const lastEntryId = previousEntries[previousEntries.length - 1]?.id ?? 0;
         previousEntries.push({
           id: lastEntryId + 1,
           role: 'assistant',
-          content: 'Diary entry: ' + diaryEntry,
+          content: 'Diary entry: ' + diaryEntryContent,
           timestamp: new Date().toISOString()
         });
-        await updateMemoryFile('./memory/long_term.json', previousEntries);
+        await updateMemoryFile(LONG_TERM_MEMORY_PATH, previousEntries);
       } catch (error) {
         console.error('Error during diary entry generation: ', error);
       }
     }
 
-    if (assistantMessage.id % 10 === 0) {
-      try {
-        const general = await readTextFile('./memory/general.json').then(JSON.parse);
-        const shortTerm = await readTextFile('./memory/short_term.json').then(JSON.parse);
-        const longTerm = await readTextFile('./memory/long_term.json').then(JSON.parse);
-        const personality = await readTextFile('./memory/personality.txt')
-        const backupObject = { general: general, shortTerm: shortTerm, longTerm: longTerm, personality: personality };
-        await updateMemoryFile(`./backups/${general.name}_backup.json`, backupObject);
+    if (assistantMessageEntry.id % 10 === 0) {
+       try {
+        const generalData = JSON.parse(await readTextFile(GENERAL_MEMORY_PATH));
+        const shortTermData = JSON.parse(await readTextFile(SHORT_TERM_MEMORY_PATH));
+        const longTermData = JSON.parse(await readTextFile(LONG_TERM_MEMORY_PATH));
+        const personalityData = await readTextFile(PERSONALITY_PATH);
+        const backupObject = { general: generalData, shortTerm: shortTermData, longTerm: longTermData, personality: personalityData };
+        await updateMemoryFile(path.join(BACKUPS_DIR_PATH, `${generalData.name}_backup.json`), backupObject);
       } catch (error) {
         console.error('Error during backup generation: ', error);
       }
     }    
 
-    res.status(201).json(previousMessages[previousMessages.length - 1]);
+    res.status(201).json(assistantMessageEntry);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'LLM request failed.' });
@@ -308,40 +425,36 @@ router.post('/api/interact/:body_part', async (req, res) => {
 })
 
 // DELETE Requests to reset memories
-// Route to delete all memories
 router.delete('/api/memory', async (req, res) => {
   try {
-    await updateTextFile('', './memory/personality.txt', 'w');
-    await updateMemoryFile('./memory/short_term.json', []);
-    await updateMemoryFile('./memory/long_term.json', []);
+    await updateTextFile('', PERSONALITY_PATH, 'w');
+    await updateMemoryFile(SHORT_TERM_MEMORY_PATH, []);
+    await updateMemoryFile(LONG_TERM_MEMORY_PATH, []);
     const jsonData = JSON.stringify({}, null, 2);
-    await updateTextFile(jsonData, './memory/general.json', 'w');
-    return res.status(204).send('All memories deleted');
+    await updateTextFile(jsonData, GENERAL_MEMORY_PATH, 'w');
+    return res.status(204).send(); // No content for 204
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Failed to delete all memories.' });
   }
 });
 
-// Route to delete a specific type of memory
 router.delete('/api/memory/:type', async (req, res) => {
   const typeOfMemory = req.params.type;
   try {
     if (typeOfMemory === 'personality') {
-      await updateTextFile('', './memory/personality.txt', 'w');
-      return res.status(204).send('Personality deleted');
+      await updateTextFile('', PERSONALITY_PATH, 'w');
     } else if (typeOfMemory === 'shortTerm') {
-      await updateMemoryFile('./memory/short_term.json', []);
-      return res.status(204).send('Short term memory deleted');
+      await updateMemoryFile(SHORT_TERM_MEMORY_PATH, []);
     } else if (typeOfMemory === 'longTerm') {
-      await updateMemoryFile('./memory/long_term.json', []);
-      return res.status(204).send('Long term memory deleted');
+      await updateMemoryFile(LONG_TERM_MEMORY_PATH, []);
     } else if (typeOfMemory === 'general') {
       const jsonData = JSON.stringify({}, null, 2);
-      await updateTextFile(jsonData, './memory/general.json', 'w');
+      await updateTextFile(jsonData, GENERAL_MEMORY_PATH, 'w');
     } else {
       return res.status(404).json({ error: 'Not a valid memory type.' });
     }
+    return res.status(204).send(); // No content for 204
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Failed to delete memory.' });
@@ -352,23 +465,27 @@ router.delete('/api/memory/:type', async (req, res) => {
 router.get('/api/backups/:name', async (req, res) => {
   const name = req.params.name;
   if (!name) return res.status(400).json({ error: 'Bad request.' });
+  const backupFilePath = path.join(BACKUPS_DIR_PATH, `${name}_backup.json`);
 
   try {
-    const backupRaw = await readTextFile(`./backups/${name}_backup.json`);
+    const backupRaw = await readTextFile(backupFilePath);
     const backupObject = JSON.parse(backupRaw);
 
     if (!backupObject) return res.status(404).json({ error: 'Backup not found.' });
 
     const { general, shortTerm, longTerm, personality } = backupObject;
 
-    await updateMemoryFile('./memory/short_term.json', shortTerm);
-    await updateMemoryFile('./memory/long_term.json', longTerm);
-    await updateTextFile(JSON.stringify(general, null, 2), './memory/general.json', 'w');
-    await updateTextFile(personality, './memory/personality.txt', 'w');
+    await updateMemoryFile(SHORT_TERM_MEMORY_PATH, shortTerm);
+    await updateMemoryFile(LONG_TERM_MEMORY_PATH, longTerm);
+    await updateTextFile(JSON.stringify(general, null, 2), GENERAL_MEMORY_PATH, 'w');
+    await updateTextFile(personality, PERSONALITY_PATH, 'w');
 
     res.status(200).json({ message: 'Memory restored successfully.' });
   } catch (error) {
     console.error(error);
+    if (error.code === 'ENOENT') { // File not found specifically
+        return res.status(404).json({ error: 'Backup file not found.' });
+    }
     res.status(500).json({ error: 'Failed to get backup.' });
   }
 });
@@ -376,7 +493,7 @@ router.get('/api/backups/:name', async (req, res) => {
 // GET Request to get short term memory
 router.get('/api/memory/short_term', async (req, res) => {
   try {
-    const messages = await readMemoryFile('./memory/short_term.json', -1);
+    const messages = await readMemoryFile(SHORT_TERM_MEMORY_PATH, -1); // -1 for all
     res.status(200).json(messages);
   } catch (error) {
     console.error(error);
@@ -387,7 +504,7 @@ router.get('/api/memory/short_term', async (req, res) => {
 // GET Request to get long term memory
 router.get('/api/memory/long_term', async (req, res) => {
   try {
-    const entries = await readMemoryFile('./memory/long_term.json', -1);
+    const entries = await readMemoryFile(LONG_TERM_MEMORY_PATH, -1); // -1 for all
     res.status(200).json(entries);
   } catch (error) {
     console.error(error);
@@ -398,21 +515,19 @@ router.get('/api/memory/long_term', async (req, res) => {
 // GET Request to retrieve user's data
 router.get('/api/user_data', async (req, res) => {
   try {
-    const userDataString = await readTextFile('./config/user_data.json');
-    // Check if the file content is empty, just {} or doesn't exist (readTextFile might return undefined or throw)
+    const userDataString = await readTextFile(USER_DATA_PATH);
     if (!userDataString || userDataString.trim() === '{}' || userDataString.trim() === '') {
         return res.status(404).json({ error: 'User data not found.' });
     }
     const userData = JSON.parse(userDataString);
-    // Check for essential fields
     if (!userData.name || !userData.gender || !userData.pronouns) {
         return res.status(404).json({ error: 'User data incomplete.' });
     }
     res.status(200).json(userData);
   } catch (error) {
-    // This catch block handles errors from readTextFile (e.g., file not found) 
-    // and JSON.parse (e.g., file is not valid JSON)
-    // console.error("Error in GET /api/user_data:", error.message); // Log specific error
+    if (error.code === 'ENOENT') {
+        return res.status(404).json({ error: 'User data file not found.' });
+    }
     res.status(404).json({ error: 'User data not found or is invalid.' });
   }
 });
@@ -420,8 +535,8 @@ router.get('/api/user_data', async (req, res) => {
 // GET Request to retrieve character's personality and general info
 router.get('/api/personality', async (req, res) => {
   try {
-    const personalityText = await readTextFile('./memory/personality.txt');
-    const generalJsonString = await readTextFile('./memory/general.json');
+    const personalityText = await readTextFile(PERSONALITY_PATH);
+    const generalJsonString = await readTextFile(GENERAL_MEMORY_PATH);
 
     if (!personalityText || personalityText.trim() === '') {
         return res.status(404).json({ error: 'Character personality not found.' });
@@ -431,7 +546,6 @@ router.get('/api/personality', async (req, res) => {
     }
     
     const generalData = JSON.parse(generalJsonString);
-    // Check for essential fields in general.json
     if (!generalData.name || !generalData.sprite) {
         return res.status(404).json({ error: 'Character general info incomplete.' });
     }
@@ -441,20 +555,12 @@ router.get('/api/personality', async (req, res) => {
         general: generalData 
     });
   } catch (error) {
-    // console.error("Error in GET /api/personality:", error.message);
+     if (error.code === 'ENOENT') {
+        return res.status(404).json({ error: 'Character profile or general info file not found.' });
+    }
     res.status(404).json({ error: 'Character profile not found or is invalid.' });
   }
 });
 
-// GET Request to check API Key configuration status
-router.get('/api/status/api_key', (req, res) => {
-  if (isApiKeyEffectivelyConfigured()) {
-    res.status(200).json({ configured: true });
-  } else {
-    // Use 404 or another appropriate status if "not configured" is the primary meaning
-    res.status(200).json({ configured: false, message: 'API Key not configured or is invalid.' });
-    // Using 200 for "successfully checked, result is false" rather than 404 "resource not found"
-  }
-});
 
 export default router;

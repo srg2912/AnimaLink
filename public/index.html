@@ -14,11 +14,15 @@
             <h2>API Key Configuration</h2>
             <form id="apiKeyForm">
                 <label for="model">Model:</label>
-                <input type="text" id="model" name="model" placeholder="e.g., gpt-3.5-turbo" required><br>
+                <input type="text" id="model" name="model" placeholder="e.g., gpt-4-vision-preview" required><br>
                 <label for="key">API Key:</label>
                 <input type="password" id="key" name="key" placeholder="Your API Key" required><br>
                 <label for="endpoint">Endpoint URL:</label>
                 <input type="url" id="endpoint" name="endpoint" placeholder="e.g., https://api.openai.com/v1" required><br>
+                <div>
+                    <input type="checkbox" id="apiKeySupportsVision" name="supports_vision">
+                    <label for="apiKeySupportsVision" class="inline-label">This model supports vision</label>
+                </div>
                 <button type="submit">Save API Key</button>
             </form>
             <p class="error-message" id="apiKeyError"></p>
@@ -26,7 +30,8 @@
 
         <!-- User Data Setup Screen -->
         <div id="user-data-screen" class="screen form-box" style="display: none;">
-            <h2>Your Information</h2>
+            <!-- ... existing user data form ... -->
+             <h2>Your Information</h2>
             <form id="userDataForm">
                 <label for="userName">Name*:</label>
                 <input type="text" id="userName" name="name" placeholder="Your Name" required><br>
@@ -49,7 +54,8 @@
 
         <!-- Character Personality Setup Screen -->
         <div id="character-setup-screen" class="screen form-box" style="display: none;">
-            <h2>Create Your Character</h2>
+            <!-- ... existing character setup form ... -->
+             <h2>Create Your Character</h2>
             <form id="characterCreateForm">
                 <label for="charName">Character Name*:</label>
                 <input type="text" id="charName" name="name" placeholder="Character's Name" required><br>
@@ -101,6 +107,12 @@
                     <!-- Messages will appear here -->
                 </div>
                 <div id="input-area">
+                    <button id="attachImageButton" class="game-button attach-button" style="display: none;" title="Attach Image">📷</button>
+                    <input type="file" id="imageUpload" accept="image/png, image/jpeg, image/gif, image/webp" style="display: none;">
+                    <div id="image-preview-container" style="display: none;">
+                        <img id="imagePreview" src="#" alt="Image preview"/>
+                        <button id="removeImagePreviewButton">✖</button>
+                    </div>
                     <input type="text" id="userMessageInput" placeholder="Type your message...">
                     <button id="sendMessageButton" class="game-button">Send</button>
                 </div>
@@ -110,9 +122,13 @@
 
         <!-- Options Modal -->
         <div id="options-modal" class="modal" style="display: none;">
-            <div class="modal-content form-box"> <!-- Added form-box for styling consistency -->
+            <div class="modal-content form-box">
                 <span class="close-button" id="closeOptionsModal">×</span>
                 <h2>Options</h2>
+                <div>
+                    <input type="checkbox" id="supportsVisionCheckbox">
+                    <label for="supportsVisionCheckbox" class="inline-label">The current model supports vision</label>
+                </div>
                 <button id="optChangeApiKey">Change API Key</button>
                 <button id="optChangeUserData">Change Your Data</button>
                 <button id="optChangeCharProfile">Edit Character Profile</button>
@@ -123,7 +139,7 @@
         
         <!-- Memory Viewer Modal -->
         <div id="memory-viewer-modal" class="modal" style="display:none;">
-            <div class="modal-content form-box"> <!-- Added form-box for styling consistency -->
+            <div class="modal-content form-box"> 
                 <span class="close-button" id="closeMemoryViewerModal">×</span>
                 <h2 id="memoryViewerTitle">Memory</h2>
                 <div id="memoryViewerContent" class="scrollable-content"></div>
