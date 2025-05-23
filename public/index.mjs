@@ -1,4 +1,3 @@
-// index.mjs
 document.addEventListener('DOMContentLoaded', () => {
     // --- DOM Elements ---
     const screens = {
@@ -93,8 +92,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const LAST_MUSIC_VOLUME_KEY = 'lastMusicVolume';
     const DEFAULT_MUSIC_TRACK = 'Simple Piano Melody.mp3';
     const DEFAULT_MUSIC_VOLUME = 0.5;
-    let initialMusicPlayed = false; // Flag to ensure music plays once after user interaction
-
+    let initialMusicPlayAttempted = false;
+    let userHasInteracted = false;
 
     // --- Helper Functions ---
     function showScreen(screenId) {
@@ -112,6 +111,9 @@ document.addEventListener('DOMContentLoaded', () => {
                  appContainer.style.backgroundColor = 'transparent'; 
             }
             toggleAttachButtonVisibility();
+            if (screenId === 'game' && !initialMusicPlayAttempted) {
+                playInitialMusic();
+            }
         } else {
             console.error("Screen not found:", screenId);
         }
@@ -305,12 +307,17 @@ document.addEventListener('DOMContentLoaded', () => {
             changeSprite('normal.png'); 
         }
         showScreen('game');
-        if (!initialMusicPlayed) { // Only try to play initial music if not already played via interaction
-            playInitialMusic();
-        }
     }
 
     async function initializeApp() {
+        initialMusicPlayAttempted = false;
+        userHasInteracted = false;
+
+        // Set up initial music volume from localStorage or default
+        const lastVolume = parseFloat(localStorage.getItem(LAST_MUSIC_VOLUME_KEY)) || DEFAULT_MUSIC_VOLUME;
+        bgMusicPlayer.volume = lastVolume;
+        musicVolumeSlider.value = lastVolume;
+
         const apiKeyStatusResponse = await apiRequest('/api/status/api_key', 'GET', null, null, true);
 
         if (!apiKeyStatusResponse || apiKeyStatusResponse.networkError) {
@@ -376,73 +383,81 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Music Helper Functions ---
     function playMusic(trackFilename, volume) {
         if (!trackFilename) return;
-        // Only change src if it's different, to avoid interrupting current playback if it's the same song
-        const currentSrcBase = bgMusicPlayer.src.substring(bgMusicPlayer.src.lastIndexOf('/') + 1);
-        if (decodeURIComponent(currentSrcBase) !== trackFilename) {
-            bgMusicPlayer.src = `/assets/bg_music/${trackFilename}`;
+        
+        const newSrc = `/assets/bg_music/${trackFilename}`;
+        if (bgMusicPlayer.src !== newSrc || bgMusicPlayer.paused) {
+            bgMusicPlayer.src = newSrc;
         }
         bgMusicPlayer.volume = volume;
         bgMusicPlayer.currentTime = 0; 
-        const playPromise = bgMusicPlayer.play();
 
+        const playPromise = bgMusicPlayer.play();
         if (playPromise !== undefined) {
             playPromise.then(_ => {
-                initialMusicPlayed = true; // Mark that music has successfully started
+                initialMusicPlayAttempted = true; 
+                userHasInteracted = true;
+                console.log("Music playing:", trackFilename);
             }).catch(error => {
                 console.warn("Music play failed:", error);
-                // Autoplay was prevented. We might need a general "click anywhere to start" overlay
-                // or rely on the user opening the music menu to start it.
-                initialMusicPlayed = false; 
+                initialMusicPlayAttempted = true;
             });
+        } else {
+            initialMusicPlayAttempted = true;
         }
     }
 
     function playInitialMusic() {
+        if (initialMusicPlayAttempted && !bgMusicPlayer.paused) return;
+
+        initialMusicPlayAttempted = true; 
         const lastTrack = localStorage.getItem(LAST_MUSIC_TRACK_KEY) || DEFAULT_MUSIC_TRACK;
         const lastVolume = parseFloat(localStorage.getItem(LAST_MUSIC_VOLUME_KEY)) || DEFAULT_MUSIC_VOLUME;
         
-        musicVolumeSlider.value = lastVolume; 
-        // Set src and volume before attempting play
+        // Update UI elements related to music settings
+        musicVolumeSlider.value = lastVolume;
+        // (Selector update happens when music menu is opened)
+
         bgMusicPlayer.src = `/assets/bg_music/${lastTrack}`;
         bgMusicPlayer.volume = lastVolume;
-
-        // Attempt to play. Browsers might block this until user interaction.
-        const playPromise = bgMusicPlayer.play();
-        if (playPromise !== undefined) {
-            playPromise.then(() => {
-                initialMusicPlayed = true;
-                console.log("Initial music playing:", lastTrack);
-            }).catch(error => {
-                console.warn("Initial music play failed (autoplay likely blocked):", error);
-                // We'll rely on user opening music menu or other interaction to start it.
-                initialMusicPlayed = false; 
-            });
-        }
-    }
-    
-    // Call this after any user interaction to ensure music can play if blocked by autoplay
-    function attemptMusicPlaybackAfterInteraction() {
-        if (!initialMusicPlayed && bgMusicPlayer.paused && bgMusicPlayer.src) {
+        
+        // Try to play. A slight delay might help on some browsers after page load.
+        setTimeout(() => {
             const playPromise = bgMusicPlayer.play();
             if (playPromise !== undefined) {
                 playPromise.then(() => {
-                    initialMusicPlayed = true;
-                }).catch(e => console.warn("Playback attempt after interaction failed:", e));
+                    userHasInteracted = true; // Assume if it plays, interaction was allowed
+                    console.log("Initial music started:", lastTrack);
+                }).catch(error => {
+                    console.warn("Initial music autoplay failed:", error);
+                });
+            }
+        }, 100); // 100ms delay
+    }
+    
+    // Call this after any *meaningful* user interaction to enable audio
+    function markUserInteraction() {
+        if (!userHasInteracted) {
+            userHasInteracted = true;
+            if (bgMusicPlayer.paused && bgMusicPlayer.src && initialMusicPlayAttempted) {
+                 const playPromise = bgMusicPlayer.play();
+                 if (playPromise !== undefined) {
+                    playPromise.catch(e => console.warn("Playback attempt after explicit interaction mark failed:", e));
+                 }
+            } else if (!bgMusicPlayer.src && !initialMusicPlayAttempted) {
+                playInitialMusic();
             }
         }
     }
 
 
     // --- Event Listeners ---
-
-    // Add a general click listener to the document to attempt music playback
-    // This helps with autoplay restrictions.
-    document.body.addEventListener('click', attemptMusicPlaybackAfterInteraction, { once: true });
+    // General click listener to mark user interaction for audio playback
+    document.body.addEventListener('click', markUserInteraction, { capture: true, once: true });
 
 
     forms.apiKey.addEventListener('submit', async (e) => {
         e.preventDefault();
-        attemptMusicPlaybackAfterInteraction();
+        markUserInteraction();
         const formData = new FormData(forms.apiKey);
         const data = Object.fromEntries(formData.entries());
         data.supports_vision = apiKeySupportsVisionCheckbox.checked;
@@ -457,7 +472,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     forms.userData.addEventListener('submit', async (e) => {
          e.preventDefault();
-         attemptMusicPlaybackAfterInteraction();
+         markUserInteraction();
         const formData = new FormData(forms.userData);
         let data = Object.fromEntries(formData.entries());
 
@@ -486,7 +501,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     forms.characterCreate.addEventListener('submit', async (e) => {
          e.preventDefault();
-         attemptMusicPlaybackAfterInteraction();
+         markUserInteraction();
         const formData = new FormData(forms.characterCreate);
         const data = Object.fromEntries(formData.entries());
         
@@ -512,7 +527,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     saveEditedPersonalityButton.addEventListener('click', async () => {
-        attemptMusicPlaybackAfterInteraction();
+        markUserInteraction();
         const editedProfile = generatedPersonalityTextarea.value;
         if (!editedProfile.trim()) {
             displayError(errorMessages.characterEdit, 'Personality cannot be empty.');
@@ -533,7 +548,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     
     continueToGameButtonElement.addEventListener('click', async () => {
-        attemptMusicPlaybackAfterInteraction();
+        markUserInteraction();
         if (!currentCharacterSetupData.name) { 
             const formData = new FormData(forms.characterCreate);
             currentCharacterSetupData.name = formData.get('name');
@@ -569,7 +584,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     sendMessageButton.addEventListener('click', async () => {
-        attemptMusicPlaybackAfterInteraction();
+        markUserInteraction();
         const messageText = userMessageInput.value.trim();
         if (!messageText && !selectedImageBase64) return;
 
@@ -594,12 +609,12 @@ document.addEventListener('DOMContentLoaded', () => {
     userMessageInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter' && !e.shiftKey) { 
             e.preventDefault(); 
-            sendMessageButton.click(); // This will trigger attemptMusicPlaybackAfterInteraction from the click handler
+            sendMessageButton.click(); 
         }
     });
 
     performActionButton.addEventListener('click', async () => {
-        attemptMusicPlaybackAfterInteraction();
+        markUserInteraction();
         const selectedAction = actionSelector.value;
         if (!selectedAction) return;
 
@@ -610,7 +625,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     attachImageButton.addEventListener('click', () => {
-        attemptMusicPlaybackAfterInteraction();
+        markUserInteraction();
         imageUploadInput.click();
     });
 
@@ -650,7 +665,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Options Modal Logic ---
     optionsButton.addEventListener('click', () => {
-        attemptMusicPlaybackAfterInteraction();
+        markUserInteraction();
         supportsVisionCheckbox.checked = visionSupportedByCurrentModel; 
         showModal(optionsModal);
     });
@@ -828,7 +843,9 @@ document.addEventListener('DOMContentLoaded', () => {
             localStorage.removeItem(LAST_MUSIC_VOLUME_KEY); 
             bgMusicPlayer.pause(); 
             bgMusicPlayer.src = ""; 
-            initialMusicPlayed = false; // Reset flag
+            initialMusicPlayAttempted = false; 
+            userHasInteracted = false;
+
 
             currentUserData = {}; 
             currentCharacterPersonalityText = '';
@@ -848,7 +865,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Background Change Logic ---
     changeBackgroundButton.addEventListener('click', async () => {
-        attemptMusicPlaybackAfterInteraction();
+        markUserInteraction();
         try {
             displayError(errorMessages.gameScreen, ''); 
             const backgrounds = await apiRequest('/api/backgrounds', 'GET', null, errorMessages.gameScreen); 
@@ -885,7 +902,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     applyBackgroundButton.addEventListener('click', async () => {
-        attemptMusicPlaybackAfterInteraction();
+        markUserInteraction();
         const selectedBackgroundFile = backgroundSelectorInput.value;
         if (!selectedBackgroundFile) {
             alert('Please select a background from the list.');
@@ -911,7 +928,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Music Settings Logic ---
     musicSettingsButton.addEventListener('click', async () => {
-        attemptMusicPlaybackAfterInteraction();
+        markUserInteraction();
         try {
             displayError(errorMessages.gameScreen, '');
             const musicTracks = await apiRequest('/api/music', 'GET', null, errorMessages.gameScreen);
@@ -934,7 +951,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         musicTrackSelector.appendChild(option);
                     });
                 }
-                musicVolumeSlider.value = bgMusicPlayer.volume; // Reflect current player volume
+                musicVolumeSlider.value = bgMusicPlayer.volume; 
                 showModal(musicSettingsModal);
             } else {
                  if (!errorMessages.gameScreen.textContent) { 
@@ -949,7 +966,7 @@ document.addEventListener('DOMContentLoaded', () => {
     musicTrackSelector.addEventListener('change', () => {
         const selectedTrack = musicTrackSelector.value;
         if (selectedTrack) {
-            playMusic(selectedTrack, bgMusicPlayer.volume); // Play new track with current volume
+            playMusic(selectedTrack, bgMusicPlayer.volume); 
             localStorage.setItem(LAST_MUSIC_TRACK_KEY, selectedTrack);
         }
     });

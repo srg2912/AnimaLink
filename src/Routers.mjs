@@ -25,7 +25,7 @@ const SHORT_TERM_MEMORY_PATH = path.join(PROJECT_ROOT, 'memory', 'short_term.jso
 const LONG_TERM_MEMORY_PATH = path.join(PROJECT_ROOT, 'memory', 'long_term.json');
 const ASSETS_SPRITES_BASE_PATH = path.join(PROJECT_ROOT, 'assets', 'sprites');
 const ASSETS_BACKGROUNDS_PATH = path.join(PROJECT_ROOT, 'assets', 'backgrounds'); 
-const ASSETS_MUSIC_PATH = path.join(PROJECT_ROOT, 'assets', 'bg_music'); // Added music path
+const ASSETS_MUSIC_PATH = path.join(PROJECT_ROOT, 'assets', 'bg_music');
 const BACKUPS_DIR_PATH = path.join(PROJECT_ROOT, 'backups');
 
 
@@ -584,11 +584,9 @@ router.get('/api/backgrounds', (req, res) => {
 router.get('/api/music', (req, res) => {
   try {
     const allFiles = listFilesInDirectory(ASSETS_MUSIC_PATH);
-    // Filter for common audio file extensions, primarily mp3 for this use case
     const musicFiles = allFiles.filter(file => /\.(mp3|wav|ogg)$/i.test(file));
     res.status(200).json(musicFiles);
   } catch (error) {
-    // listFilesInDirectory already logs its specific error
     res.status(500).json({ error: 'Failed to retrieve music files list.' });
   }
 });
