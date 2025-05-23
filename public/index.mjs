@@ -154,7 +154,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return responseData;
             }
 
-            if (!response.ok) {ks
+            if (!response.ok) { // Fixed typo: removed 'ks'
                 if (!isInitialCheck || (responseData && responseData.error && response.status !== 404)) {
                     displayError(errorElement, responseData?.error || `Request failed: ${response.status} ${response.statusText}`);
                 }
@@ -221,64 +221,9 @@ document.addEventListener('DOMContentLoaded', () => {
             };
         }, 300);
     }
-
-    async function initializeApp() {
-        const apiKeyStatusResponse = await apiRequest('/api/status/api_key', 'GET', null, null, true);
-
-        if (!apiKeyStatusResponse || apiKeyStatusResponse.networkError) {
-            showScreen('apiKey');
-            if (apiKeyStatusResponse && apiKeyStatusResponse.message) {
-                 displayError(errorMessages.apiKey, `Network error checking API status: ${apiKeyStatusResponse.message}`);
-            } else {
-                 displayError(errorMessages.apiKey, "Could not connect to server to check API status.");
-            }
-            return;
-        }
-        
-        visionSupportedByCurrentModel = apiKeyStatusResponse.supports_vision || false;
-        supportsVisionCheckbox.checked = visionSupportedByCurrentModel;
-        apiKeySupportsVisionCheckbox.checked = visionSupportedByCurrentModel; // Sync with API key form checkbox
-
-        if (!apiKeyStatusResponse.configured) {
-            showScreen('apiKey');
-            if (apiKeyStatusResponse.message) {
-                displayError(errorMessages.apiKey, apiKeyStatusResponse.message); // Show "not configured" message
-            }
-            return;
-        }
-
-        const userDataResponse = await apiRequest('/api/user_data', 'GET', null, null, true); 
-        
-        if (userDataResponse && userDataResponse.name && !userDataResponse.error && !userDataResponse.notFound) {
-            currentUserData = userDataResponse;
-
-            const charProfileResponse = await apiRequest('/api/personality', 'GET', null, null, true);
-            if (charProfileResponse && charProfileResponse.profile && charProfileResponse.general?.sprite && !charProfileResponse.error && !charProfileResponse.notFound) {
-                currentCharacterPersonalityText = charProfileResponse.profile;
-                currentCharacterSetupData = charProfileResponse.general; 
-                currentSpriteFolder = charProfileResponse.general.sprite;
-                
-                generatedPersonalityTextarea.value = currentCharacterPersonalityText;
-                forms.characterCreate.name.value = currentCharacterSetupData.name || '';
-                forms.characterCreate.looks.value = currentCharacterSetupData.looks || '';
-                forms.characterCreate.personality.value = currentCharacterSetupData.rawPersonalityInput || ''; 
-                forms.characterCreate.language.value = currentCharacterSetupData.language || 'English';
-                forms.characterCreate.sprite.value = currentSpriteFolder || '';
-                
-                await goToGameScreen(true);
-            } else {
-                prefillUserDataForm(); 
-                showScreen('characterSetup');
-            }
-        } else {
-            showScreen('userData');
-            if (userDataResponse && userDataResponse.error && !userDataResponse.notFound) { // If there was an error other than "not found"
-                displayError(errorMessages.userData, `Error fetching user data: ${userDataResponse.error}`);
-            }
-        }
-        toggleAttachButtonVisibility();
-    }
     
+    // REMOVED FIRST (DUPLICATE) initializeApp function that was here
+
     function prefillUserDataForm() {
          if (currentUserData && Object.keys(currentUserData).length > 0) {
             forms.userData.name.value = currentUserData.name || '';
@@ -332,11 +277,18 @@ document.addEventListener('DOMContentLoaded', () => {
         showScreen('game');
     }
 
+    // This is the primary initializeApp function (the second one from your original file, kept for its logic)
     async function initializeApp() {
         const apiKeyStatusResponse = await apiRequest('/api/status/api_key', 'GET', null, null, true);
 
         if (!apiKeyStatusResponse || apiKeyStatusResponse.networkError) {
             showScreen('apiKey');
+            // Optionally display a more specific error if apiKeyStatusResponse.message exists
+             if (apiKeyStatusResponse && apiKeyStatusResponse.message) {
+                 displayError(errorMessages.apiKey, `Network error checking API status: ${apiKeyStatusResponse.message}`);
+            } else {
+                 displayError(errorMessages.apiKey, "Could not connect to server to check API status.");
+            }
             return;
         }
         
@@ -348,6 +300,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // If not configured, show API key screen
         if (!apiKeyStatusResponse.configured) {
             showScreen('apiKey');
+            if (apiKeyStatusResponse.message) { // Show "not configured" message from server if available
+                displayError(errorMessages.apiKey, apiKeyStatusResponse.message);
+            }
             return;
         }
 
@@ -378,9 +333,16 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 prefillUserDataForm(); 
                 showScreen('characterSetup');
+                 if (charProfileResponse && charProfileResponse.error && !charProfileResponse.notFound) {
+                    displayError(errorMessages.characterCreate, `Error fetching character profile: ${charProfileResponse.error}`);
+                }
             }
         } else {
+            prefillUserDataForm(); // prepare form even if going to userData screen
             showScreen('userData');
+            if (userDataResponse && userDataResponse.error && !userDataResponse.notFound) {
+                displayError(errorMessages.userData, `Error fetching user data: ${userDataResponse.error}`);
+            }
         }
         toggleAttachButtonVisibility(); 
     }
@@ -399,24 +361,8 @@ document.addEventListener('DOMContentLoaded', () => {
             visionSupportedByCurrentModel = result.supports_vision || false;
             supportsVisionCheckbox.checked = visionSupportedByCurrentModel; // Sync options modal checkbox
             
-            // Re-evaluate flow
-            const userDataResponse = await apiRequest('/api/user_data', 'GET', null, null, true);
-            if (userDataResponse && userDataResponse.name && !userDataResponse.error && !userDataResponse.notFound) {
-                currentUserData = userDataResponse;
-                const charProfileResponse = await apiRequest('/api/personality', 'GET', null, null, true);
-                if (charProfileResponse && charProfileResponse.profile && charProfileResponse.general?.sprite && !charProfileResponse.error && !charProfileResponse.notFound) {
-                    currentCharacterPersonalityText = charProfileResponse.profile;
-                    currentCharacterSetupData = charProfileResponse.general;
-                    currentSpriteFolder = charProfileResponse.general.sprite;
-                    generatedPersonalityTextarea.value = currentCharacterPersonalityText;
-                    await goToGameScreen(true);
-                } else {
-                    prefillUserDataForm();
-                    showScreen('characterSetup');
-                }
-            } else {
-                showScreen('userData');
-            }
+            // Re-evaluate flow: Directly call initializeApp to simplify logic and avoid redundancy
+            await initializeApp();
         }
     });
 
@@ -446,20 +392,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 optionsModal.style.display = 'none'; 
                 isUserDataEditing = false;
                 userDataSubmitButton.textContent = 'Save User Data';
-                 showScreen('game');
+                await initializeApp(); // Re-initialize to ensure consistency
             } else {
-                const charProfileResponse = await apiRequest('/api/personality', 'GET', null, null, true);
-                if (charProfileResponse && charProfileResponse.profile && charProfileResponse.general?.sprite && !charProfileResponse.error && !charProfileResponse.notFound) {
-                    currentCharacterPersonalityText = charProfileResponse.profile;
-                    currentCharacterSetupData = charProfileResponse.general;
-                    currentSpriteFolder = charProfileResponse.general.sprite;
-                    generatedPersonalityTextarea.value = currentCharacterPersonalityText;
-                    await goToGameScreen(true);
-                } else {
-                    showScreen('characterSetup');
-                }
+                // After initial user data setup, proceed to character setup or game
+                await initializeApp();
             }
         } else if (result && result.error) {
+            // Error already displayed by apiRequest
         } else if (!result) {
             displayError(errorMessages.userData, "Failed to save user data. Unknown error.");
         }
@@ -480,16 +419,19 @@ document.addEventListener('DOMContentLoaded', () => {
         const result = await apiRequest('/api/personality', 'POST', data, errorMessages.characterCreate);
         if (result && result.characterProfile && !result.error) {
             currentCharacterPersonalityText = result.characterProfile;
-            const generalInfo = await apiRequest('/api/personality', 'GET', null, errorMessages.characterCreate);
-            if (generalInfo && generalInfo.general) {
-                currentCharacterSetupData = generalInfo.general;
+            // Fetch general info again to get all stored data including rawPersonalityInput
+            const generalInfoResponse = await apiRequest('/api/personality', 'GET', null, errorMessages.characterCreate);
+            if (generalInfoResponse && generalInfoResponse.general) {
+                currentCharacterSetupData = generalInfoResponse.general;
+                currentSpriteFolder = generalInfoResponse.general.sprite; 
             } else {
-                 currentCharacterSetupData = data; // Fallback
+                 // Fallback if fetching updated general info fails, use submitted data
+                 currentCharacterSetupData = { ...data, rawPersonalityInput: data.personality }; // Store raw input
+                 currentSpriteFolder = data.sprite; 
             }
 
             generatedPersonalityTextarea.value = result.characterProfile;
             characterEditSection.style.display = 'block';
-            currentSpriteFolder = data.sprite; 
         }
     });
 
@@ -508,26 +450,37 @@ document.addEventListener('DOMContentLoaded', () => {
                 optionsModal.style.display = 'none';
                 isCharacterProfileEditing = false;
                 characterEditSection.style.display = 'none'; 
-                forms.characterCreate.style.display = 'block';
-                showScreen('game');
+                forms.characterCreate.style.display = 'block'; // Show the form again
+                continueToGameButtonElement.style.display = 'inline-block'; // Show continue button
+                // It's better to re-initialize to ensure all states are correct
+                await initializeApp();
             } else {
+                 // If not editing via options, just stay on character setup with edit section visible
                  characterEditSection.style.display = 'block';
             }
         }
     });
     
     continueToGameButtonElement.addEventListener('click', async () => {
-        if (!currentCharacterSetupData.sprite && forms.characterCreate.sprite.value) {
-            currentCharacterSetupData.sprite = forms.characterCreate.sprite.value;
+        // Ensure currentCharacterSetupData and currentSpriteFolder are up-to-date from the form if needed
+        if (!currentCharacterSetupData.name) { // If general data isn't fully populated yet
+            const formData = new FormData(forms.characterCreate);
+            currentCharacterSetupData.name = formData.get('name');
+            currentCharacterSetupData.looks = formData.get('looks');
+            currentCharacterSetupData.language = formData.get('language');
+            currentCharacterSetupData.sprite = formData.get('sprite');
+            // rawPersonalityInput should be set when character is created or fetched
         }
-        if(!currentSpriteFolder && currentCharacterSetupData.sprite) {
-            currentSpriteFolder = currentCharacterSetupData.sprite;
+        if (!currentSpriteFolder && forms.characterCreate.sprite.value) {
+            currentSpriteFolder = forms.characterCreate.sprite.value;
+            if (currentCharacterSetupData) currentCharacterSetupData.sprite = currentSpriteFolder;
         }
+        
         if (!currentSpriteFolder) {
-            displayError(errorMessages.characterEdit, "Sprite folder is missing. Cannot continue.");
+            displayError(errorMessages.characterEdit, "Sprite folder is missing. Please fill the 'Sprite Folder To Use' field and generate/save the profile. Cannot continue.");
             return;
         }
-        await goToGameScreen(false); // Not loading existing, it's a new setup
+        await goToGameScreen(false); // Not loading existing from memory, it's a new setup or continuation from setup
     });
 
     async function handleInteractionResponse(result) {
@@ -604,8 +557,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
             // Optional: File size check (e.g., < 5MB)
-            if (file.size > 7 * 1024 * 1024) { // 5 MB
-                 alert('File is too large. Please select an image under 5MB.');
+            if (file.size > 7 * 1024 * 1024) { // 7 MB to match backend
+                 alert('File is too large. Please select an image under 7MB.'); // Adjusted to 7MB
                  imageUploadInput.value = '';
                  return;
             }
@@ -684,17 +637,19 @@ document.addEventListener('DOMContentLoaded', () => {
         isCharacterProfileEditing = true;
         
         // Pre-fill the create form with existing setup data
-        forms.characterCreate.name.value = currentCharacterSetupData.name || '';
-        forms.characterCreate.looks.value = currentCharacterSetupData.looks || '';
-        forms.characterCreate.personality.value = currentCharacterSetupData.rawPersonalityInput || ''; 
-        forms.characterCreate.language.value = currentCharacterSetupData.language || '';
-        forms.characterCreate.sprite.value = currentSpriteFolder || currentCharacterSetupData.sprite || '';
+        // This assumes currentCharacterSetupData and currentCharacterPersonalityText are populated from initializeApp
+        if (currentCharacterSetupData) {
+            forms.characterCreate.name.value = currentCharacterSetupData.name || '';
+            forms.characterCreate.looks.value = currentCharacterSetupData.looks || '';
+            forms.characterCreate.personality.value = currentCharacterSetupData.rawPersonalityInput || ''; 
+            forms.characterCreate.language.value = currentCharacterSetupData.language || '';
+            forms.characterCreate.sprite.value = currentSpriteFolder || currentCharacterSetupData.sprite || '';
+        }
+        generatedPersonalityTextarea.value = currentCharacterPersonalityText || '';
         
-        generatedPersonalityTextarea.value = currentCharacterPersonalityText;
-        
-        forms.characterCreate.style.display = 'none';
-        characterEditSection.style.display = 'block';
-        continueToGameButtonElement.style.display = 'none';
+        forms.characterCreate.style.display = 'none'; // Hide the create form part initially
+        characterEditSection.style.display = 'block'; // Show only edit section
+        continueToGameButtonElement.style.display = 'none'; // Hide continue button in this mode
 
         showScreen('characterSetup');
     });
@@ -703,7 +658,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const endpoint = type === 'shortTerm' ? '/api/memory/short_term' : '/api/memory/long_term';
         const title = type === 'shortTerm' ? 'Chat History (Short-Term Memory)' : "Character's Diary (Long-Term Memory)";
         
-        const data = await apiRequest(endpoint, 'GET', null, null);
+        const data = await apiRequest(endpoint, 'GET', null, null); // Error display in modal for simplicity
         
         memoryViewerTitle.textContent = title;
         memoryViewerContent.innerHTML = ''; 
@@ -743,7 +698,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 memoryViewerContent.appendChild(ul);
             }
         } else {
-            memoryViewerContent.textContent = `Failed to load ${type === 'shortTerm' ? 'chat history' : 'diary'}. ${data?.error || data?.message || 'Unknown error.'} (Endpoint: ${endpoint})`;
+            memoryViewerContent.textContent = `Failed to load ${type === 'shortTerm' ? 'chat history' : 'diary'}. ${data?.error || data?.message || 'Unknown error.'}`;
         }
         memoryViewerModal.style.display = 'block';
     }
@@ -788,7 +743,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (result && result.message && !result.error) {
             alert(result.message);
             // Reload application state to reflect restored data
-            await refreshAppAndCharacterData();
+            await initializeApp(); // Changed from refreshAppAndCharacterData
         } else {
             alert(`Failed to restore backup for "${characterName.trim()}": ${result?.error || 'Backup not found or error occurred.'}`);
         }
@@ -801,10 +756,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!confirmCreateNew) return;
 
         const result = await apiRequest('/api/memory', 'DELETE', null, errorMessages.gameScreen);
-        // DELETE /api/memory returns 204 on success, so result.success will be true
-        if (result && result.success && !result.error) {
+        if (result && result.success && !result.error) { // DELETE /api/memory returns 204 on success
             alert('Current character data deleted. You will now be taken to the character creation screen.');
             // Clear local state related to the old character immediately
+            currentUserData = {}; // Also clear user data if a full reset implies starting over user setup too. Or decide if user data persists.
+                                // For now, assume user data might persist, but character specific data is wiped.
             currentCharacterPersonalityText = '';
             currentCharacterSetupData = {};
             currentSpriteFolder = '';
@@ -813,17 +769,10 @@ document.addEventListener('DOMContentLoaded', () => {
             forms.characterCreate.reset(); 
             characterEditSection.style.display = 'none';
             forms.characterCreate.style.display = 'block';
-             continueToGameButtonElement.style.display = 'inline-block';
+            continueToGameButtonElement.style.display = 'inline-block';
 
-            showScreen('characterSetup');
-            const apiKeyStatusResponse = await apiRequest('/api/status/api_key', 'GET', null, null, true);
-            if (apiKeyStatusResponse) {
-                visionSupportedByCurrentModel = apiKeyStatusResponse.supports_vision || false;
-                supportsVisionCheckbox.checked = visionSupportedByCurrentModel;
-                apiKeySupportsVisionCheckbox.checked = visionSupportedByCurrentModel;
-                toggleAttachButtonVisibility();
-            }
-
+            // After deleting memory, re-initialize. initializeApp will guide to the correct screen (likely characterSetup).
+            await initializeApp(); 
         } else {
             alert(`Failed to delete current character data: ${result?.error || 'Unknown error'}`);
         }
