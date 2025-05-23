@@ -1,3 +1,4 @@
+// Routers.mjs
 import { Router } from 'express';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -6,7 +7,7 @@ import { fileURLToPath } from 'url';
 import { updateTextFile, updateMemoryFile } from './Write_To.mjs';
 import { readTextFile, readMemoryFile } from './Read_File.mjs';
 import { generateInstructionPrompt,  generateSpritePrompt, generatePersonalityPrompt, generateDiaryPrompt } from './Generate_Prompt.mjs';
-import { readContents, pickValidSprite, listFilesInDirectory } from './get_images.mjs'; // Added listFilesInDirectory
+import { readContents, pickValidSprite, listFilesInDirectory } from './get_images.mjs'; 
 import { ask_LLM, isApiKeyEffectivelyConfigured, getVisionSupportStatus, reloadConfigAndReinitializeClient, forceReinitializeOpenAI } from './LLM_Request.mjs';
 
 const router = Router();
@@ -23,7 +24,8 @@ const GENERAL_MEMORY_PATH = path.join(PROJECT_ROOT, 'memory', 'general.json');
 const SHORT_TERM_MEMORY_PATH = path.join(PROJECT_ROOT, 'memory', 'short_term.json');
 const LONG_TERM_MEMORY_PATH = path.join(PROJECT_ROOT, 'memory', 'long_term.json');
 const ASSETS_SPRITES_BASE_PATH = path.join(PROJECT_ROOT, 'assets', 'sprites');
-const ASSETS_BACKGROUNDS_PATH = path.join(PROJECT_ROOT, 'assets', 'backgrounds'); // Added backgrounds path
+const ASSETS_BACKGROUNDS_PATH = path.join(PROJECT_ROOT, 'assets', 'backgrounds'); 
+const ASSETS_MUSIC_PATH = path.join(PROJECT_ROOT, 'assets', 'bg_music'); // Added music path
 const BACKUPS_DIR_PATH = path.join(PROJECT_ROOT, 'backups');
 
 
@@ -39,11 +41,11 @@ router.post('/api/api_key', async (req, res) => {
         'key': key, 
         'base_url': endpoint, 
         'type': 'module',
-        'supports_vision': !!supports_vision // Ensure boolean
+        'supports_vision': !!supports_vision 
     };
     const jsonData = JSON.stringify(configData, null, 2);
     await updateTextFile(jsonData, USER_CONFIG_PATH, 'w');
-    forceReinitializeOpenAI(); // Re-initialize LLM client with new config
+    forceReinitializeOpenAI(); 
     res.status(201).json(configData);
   } catch (error) {
     console.error(error);
@@ -85,7 +87,6 @@ router.patch('/api/config/vision', async (req, res) => {
         const jsonData = JSON.stringify(currentConfig, null, 2);
         await updateTextFile(jsonData, USER_CONFIG_PATH, 'w');
         
-        // Reload LLM client config
         const reloaded = reloadConfigAndReinitializeClient();
         if (!reloaded && currentConfig.key) {
              console.warn("LLM client failed to re-initialize after vision config update. May need full API key setup if not done.");
@@ -199,7 +200,7 @@ router.post('/api/personality', async (req, res) => {
     const personalityPrompt = generatePersonalityPrompt (name, looks, personality, language);
     const result = await ask_LLM(personalityPrompt);
     await updateTextFile(result, PERSONALITY_PATH, 'w');
-    const jsonData = JSON.stringify({ 'name': name, 'looks': looks, 'sprite': sprite, 'language': language, 'rawPersonalityInput': personality }, null, 2); // Store language and raw personality input too
+    const jsonData = JSON.stringify({ 'name': name, 'looks': looks, 'sprite': sprite, 'language': language, 'rawPersonalityInput': personality }, null, 2); 
     await updateTextFile(jsonData, GENERAL_MEMORY_PATH, 'w');
     res.status(201).json({ characterProfile: result });
   } catch (error) {
@@ -212,25 +213,21 @@ router.post('/api/personality', async (req, res) => {
 router.patch('/api/personality', async (req, res) => {
   const { edit } = req.body;
   try {
-    if (!edit || edit.trim() === '') { // check for empty or whitespace only
+    if (!edit || edit.trim() === '') { 
       return res.status(400).json({ error: 'Cannot leave personality empty.' });
     };
     await updateTextFile(edit, PERSONALITY_PATH, 'w');
-    res.status(200).json({ characterProfile: edit }); // 200 for update
+    res.status(200).json({ characterProfile: edit }); 
   } catch (error) {
     console.error(error);
     res.status(400).json({ error: 'Failed to edit character\'s personality.' });
   }
 });
 
-// POST Request to send a message to the character (MODIFIED FOR IMAGE)
+// POST Request to send a message to the character
 router.post('/api/message', async (req, res) => {
-  const { message, image_data } = req.body; // image_data is base64 string
+  const { message, image_data } = req.body; 
   if (!message && !image_data) return res.status(400).json({ error: 'Message or image required.' });
-  if (!message && image_data) {
-    // No specific action needed here, handled by llmPromptContent logic
-  }
-
 
   const personality =  await readTextFile(PERSONALITY_PATH);
   if (!personality) return res.status(400).json({ error: 'Personality required.' });
@@ -246,9 +243,9 @@ router.post('/api/message', async (req, res) => {
   let llmPromptContent;
   if (image_data) {
     llmPromptContent = [];
-    if (message) { // Add text part if message exists
+    if (message) { 
         llmPromptContent.push({ type: "text", text: message });
-    } else { // If only image, add a generic text part
+    } else { 
         llmPromptContent.push({ type: "text", text: "The user sent this image. Describe it or react to it." });
     }
     llmPromptContent.push({ type: "image_url", image_url: { url: image_data } });
@@ -273,8 +270,8 @@ router.post('/api/message', async (req, res) => {
     const userMessageEntry = {
       id: lastId + 1,
       role: 'user',
-      content: message || "[Image sent]", // Use placeholder if only image
-      image_data: image_data || null, // Store base64 image data
+      content: message || "[Image sent]", 
+      image_data: image_data || null, 
       timestamp: new Date().toISOString()
     };
     const assistantMessageEntry = {
@@ -319,39 +316,39 @@ router.post('/api/message', async (req, res) => {
       }
     }    
 
-    res.status(201).json(assistantMessageEntry); // Send back assistant's response
+    res.status(201).json(assistantMessageEntry); 
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'LLM request failed.' });
   }
 })
 
-// POST Request to interact with the character, recicled logic of messaging
-router.post('/api/interact/:body_part', async (req, res) => {
-  const bodyPart = req.params.body_part;
-  const { backgroundName } = req.body; // For background_change
+// POST Request to interact with the character
+router.post('/api/interact/:interaction_type', async (req, res) => {
+  const interactionType = req.params.interaction_type;
+  const { backgroundName } = req.body; 
 
-  if (!bodyPart) return res.status(400).json({ error: 'Body part or interaction type not specified.' })
+  if (!interactionType) return res.status(400).json({ error: 'Interaction type not specified.' })
   
   let interactionMessage = '';
-  let userInteractionLogMessage = `System: User interacted (${bodyPart}).`;
+  let userInteractionLogMessage = `System: User interacted (${interactionType}).`;
 
-  if (bodyPart === 'hug') {
+  if (interactionType === 'hug') {
     interactionMessage = 'System Message: The user hugged your sprite.';
-  } else if (bodyPart === 'tickle') {
+  } else if (interactionType === 'tickle') {
     interactionMessage = 'System Message: The user tickled your sprite on the ribs.';
-  } else if (bodyPart === 'kiss') {
+  } else if (interactionType === 'kiss') {
     interactionMessage = 'System Message: The user kissed your sprite.';
-  } else if (bodyPart === 'background_change') {
+  } else if (interactionType === 'background_change') {
     if (!backgroundName) {
         return res.status(400).json({ error: 'Background name not specified for background_change interaction.' });
     }
-    // Remove extension and replace underscores for a cleaner message to LLM
     const cleanBackgroundName = backgroundName.replace(/\.(png|jpe?g|gif|webp)$/i, '').replace(/_/g, ' ');
     interactionMessage = `System: The user took you to ${cleanBackgroundName}.`;
-    userInteractionLogMessage = `System: User changed background to ${backgroundName}.`; // Log with original filename
+    userInteractionLogMessage = `System: User changed background to ${backgroundName}.`; 
   } else {
-    interactionMessage = `System Message: The user stroke your ${bodyPart} by interacting with your sprite.`;
+    // Default for other potential body parts passed in URL (though specific cases are better)
+    interactionMessage = `System Message: The user stroke your ${interactionType} by interacting with your sprite.`;
   };
 
   if (!interactionMessage) return res.status(500).json({ error: 'Couldn\'t perform action or invalid interaction type.' })
@@ -381,7 +378,7 @@ router.post('/api/interact/:body_part', async (req, res) => {
     
     const userMessageEntry = { 
       id: lastId + 1,
-      role: 'user', // Representing the user's action/system event
+      role: 'user', 
       content: userInteractionLogMessage, 
       timestamp: new Date().toISOString()
     };
@@ -396,10 +393,10 @@ router.post('/api/interact/:body_part', async (req, res) => {
     await updateMemoryFile(SHORT_TERM_MEMORY_PATH, previousMessages);
 
     // Diary and Backup logic
-     if (assistantMessageEntry.id % 20 === 0) { // Changed from 30 to 20 to match /api/message
+     if (assistantMessageEntry.id % 20 === 0) { 
       try {
         const diaryPrompt = generateDiaryPrompt(personality);
-        const contextWindow = previousMessages.slice(-20); // Consistent context window
+        const contextWindow = previousMessages.slice(-20); 
         const diaryEntryContent = await ask_LLM(diaryPrompt, '', contextWindow);
         const lastEntryId = previousEntries[previousEntries.length - 1]?.id ?? 0;
         previousEntries.push({
@@ -576,14 +573,26 @@ router.get('/api/personality', async (req, res) => {
 router.get('/api/backgrounds', (req, res) => {
   try {
     const allFiles = listFilesInDirectory(ASSETS_BACKGROUNDS_PATH);
-    // Filter for common image file extensions
     const imageFiles = allFiles.filter(file => /\.(png|jpe?g|gif|webp)$/i.test(file));
     res.status(200).json(imageFiles);
   } catch (error) {
-    // listFilesInDirectory already logs its specific error
     res.status(500).json({ error: 'Failed to retrieve background images list.' });
   }
 });
+
+// GET Request to get list of available music tracks
+router.get('/api/music', (req, res) => {
+  try {
+    const allFiles = listFilesInDirectory(ASSETS_MUSIC_PATH);
+    // Filter for common audio file extensions, primarily mp3 for this use case
+    const musicFiles = allFiles.filter(file => /\.(mp3|wav|ogg)$/i.test(file));
+    res.status(200).json(musicFiles);
+  } catch (error) {
+    // listFilesInDirectory already logs its specific error
+    res.status(500).json({ error: 'Failed to retrieve music files list.' });
+  }
+});
+
 
 // POST Request to manually create a backup
 router.post('/api/backups/create', async (req, res) => {

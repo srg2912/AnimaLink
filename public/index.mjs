@@ -70,6 +70,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const closeBackgroundSelectorModalButton = document.getElementById('closeBackgroundSelectorModal');
     const backgroundSelectorInput = document.getElementById('backgroundSelectorInput');
     const applyBackgroundButton = document.getElementById('applyBackgroundButton');
+
+    // Music Settings Modal Elements
+    const musicSettingsButton = document.getElementById('musicSettingsButton');
+    const musicSettingsModal = document.getElementById('music-settings-modal');
+    const closeMusicSettingsModalButton = document.getElementById('closeMusicSettingsModal');
+    const musicTrackSelector = document.getElementById('musicTrackSelector');
+    const musicVolumeSlider = document.getElementById('musicVolumeSlider');
+    const bgMusicPlayer = document.getElementById('bgMusicPlayer'); 
     
     // --- State Variables ---
     let currentSpriteFolder = '';
@@ -80,7 +88,13 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentCharacterPersonalityText = '';
     let visionSupportedByCurrentModel = false;
     let selectedImageBase64 = null;
-    const LAST_BACKGROUND_KEY = 'lastSelectedBackground'; // localStorage key
+    const LAST_BACKGROUND_KEY = 'lastSelectedBackground'; 
+    const LAST_MUSIC_TRACK_KEY = 'lastSelectedMusicTrack';
+    const LAST_MUSIC_VOLUME_KEY = 'lastMusicVolume';
+    const DEFAULT_MUSIC_TRACK = 'Simple Piano Melody.mp3';
+    const DEFAULT_MUSIC_VOLUME = 0.5;
+    let initialMusicPlayed = false; // Flag to ensure music plays once after user interaction
+
 
     // --- Helper Functions ---
     function showScreen(screenId) {
@@ -105,7 +119,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function showModal(modalElement) {
         if (modalElement) {
-            modalElement.style.display = 'flex'; // Use flex for centering defined in CSS
+            modalElement.style.display = 'flex'; 
         }
     }
 
@@ -263,7 +277,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         
-        // Load last selected background or default
         const lastBg = localStorage.getItem(LAST_BACKGROUND_KEY);
         backgroundImage.src = lastBg ? `/assets/backgrounds/${lastBg}` : '/assets/backgrounds/living_room.png';
         
@@ -284,8 +297,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 changeSprite('normal.png');
                  if (shortTermMemory && shortTermMemory.error) {
-                     // Error already handled
-                } else if (!Array.isArray(shortTermMemory)) {
+                 } else if (!Array.isArray(shortTermMemory)) {
                     displayError(errorMessages.gameScreen, "Failed to load chat history: Invalid response from server.");
                 }
             }
@@ -293,6 +305,9 @@ document.addEventListener('DOMContentLoaded', () => {
             changeSprite('normal.png'); 
         }
         showScreen('game');
+        if (!initialMusicPlayed) { // Only try to play initial music if not already played via interaction
+            playInitialMusic();
+        }
     }
 
     async function initializeApp() {
@@ -358,10 +373,76 @@ document.addEventListener('DOMContentLoaded', () => {
         toggleAttachButtonVisibility(); 
     }
 
+    // --- Music Helper Functions ---
+    function playMusic(trackFilename, volume) {
+        if (!trackFilename) return;
+        // Only change src if it's different, to avoid interrupting current playback if it's the same song
+        const currentSrcBase = bgMusicPlayer.src.substring(bgMusicPlayer.src.lastIndexOf('/') + 1);
+        if (decodeURIComponent(currentSrcBase) !== trackFilename) {
+            bgMusicPlayer.src = `/assets/bg_music/${trackFilename}`;
+        }
+        bgMusicPlayer.volume = volume;
+        bgMusicPlayer.currentTime = 0; 
+        const playPromise = bgMusicPlayer.play();
+
+        if (playPromise !== undefined) {
+            playPromise.then(_ => {
+                initialMusicPlayed = true; // Mark that music has successfully started
+            }).catch(error => {
+                console.warn("Music play failed:", error);
+                // Autoplay was prevented. We might need a general "click anywhere to start" overlay
+                // or rely on the user opening the music menu to start it.
+                initialMusicPlayed = false; 
+            });
+        }
+    }
+
+    function playInitialMusic() {
+        const lastTrack = localStorage.getItem(LAST_MUSIC_TRACK_KEY) || DEFAULT_MUSIC_TRACK;
+        const lastVolume = parseFloat(localStorage.getItem(LAST_MUSIC_VOLUME_KEY)) || DEFAULT_MUSIC_VOLUME;
+        
+        musicVolumeSlider.value = lastVolume; 
+        // Set src and volume before attempting play
+        bgMusicPlayer.src = `/assets/bg_music/${lastTrack}`;
+        bgMusicPlayer.volume = lastVolume;
+
+        // Attempt to play. Browsers might block this until user interaction.
+        const playPromise = bgMusicPlayer.play();
+        if (playPromise !== undefined) {
+            playPromise.then(() => {
+                initialMusicPlayed = true;
+                console.log("Initial music playing:", lastTrack);
+            }).catch(error => {
+                console.warn("Initial music play failed (autoplay likely blocked):", error);
+                // We'll rely on user opening music menu or other interaction to start it.
+                initialMusicPlayed = false; 
+            });
+        }
+    }
+    
+    // Call this after any user interaction to ensure music can play if blocked by autoplay
+    function attemptMusicPlaybackAfterInteraction() {
+        if (!initialMusicPlayed && bgMusicPlayer.paused && bgMusicPlayer.src) {
+            const playPromise = bgMusicPlayer.play();
+            if (playPromise !== undefined) {
+                playPromise.then(() => {
+                    initialMusicPlayed = true;
+                }).catch(e => console.warn("Playback attempt after interaction failed:", e));
+            }
+        }
+    }
+
+
     // --- Event Listeners ---
+
+    // Add a general click listener to the document to attempt music playback
+    // This helps with autoplay restrictions.
+    document.body.addEventListener('click', attemptMusicPlaybackAfterInteraction, { once: true });
+
 
     forms.apiKey.addEventListener('submit', async (e) => {
         e.preventDefault();
+        attemptMusicPlaybackAfterInteraction();
         const formData = new FormData(forms.apiKey);
         const data = Object.fromEntries(formData.entries());
         data.supports_vision = apiKeySupportsVisionCheckbox.checked;
@@ -376,6 +457,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     forms.userData.addEventListener('submit', async (e) => {
          e.preventDefault();
+         attemptMusicPlaybackAfterInteraction();
         const formData = new FormData(forms.userData);
         let data = Object.fromEntries(formData.entries());
 
@@ -404,6 +486,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     forms.characterCreate.addEventListener('submit', async (e) => {
          e.preventDefault();
+         attemptMusicPlaybackAfterInteraction();
         const formData = new FormData(forms.characterCreate);
         const data = Object.fromEntries(formData.entries());
         
@@ -429,6 +512,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     saveEditedPersonalityButton.addEventListener('click', async () => {
+        attemptMusicPlaybackAfterInteraction();
         const editedProfile = generatedPersonalityTextarea.value;
         if (!editedProfile.trim()) {
             displayError(errorMessages.characterEdit, 'Personality cannot be empty.');
@@ -449,6 +533,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     
     continueToGameButtonElement.addEventListener('click', async () => {
+        attemptMusicPlaybackAfterInteraction();
         if (!currentCharacterSetupData.name) { 
             const formData = new FormData(forms.characterCreate);
             currentCharacterSetupData.name = formData.get('name');
@@ -484,6 +569,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     sendMessageButton.addEventListener('click', async () => {
+        attemptMusicPlaybackAfterInteraction();
         const messageText = userMessageInput.value.trim();
         if (!messageText && !selectedImageBase64) return;
 
@@ -508,11 +594,12 @@ document.addEventListener('DOMContentLoaded', () => {
     userMessageInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter' && !e.shiftKey) { 
             e.preventDefault(); 
-            sendMessageButton.click();
+            sendMessageButton.click(); // This will trigger attemptMusicPlaybackAfterInteraction from the click handler
         }
     });
 
     performActionButton.addEventListener('click', async () => {
+        attemptMusicPlaybackAfterInteraction();
         const selectedAction = actionSelector.value;
         if (!selectedAction) return;
 
@@ -523,6 +610,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     attachImageButton.addEventListener('click', () => {
+        attemptMusicPlaybackAfterInteraction();
         imageUploadInput.click();
     });
 
@@ -562,6 +650,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Options Modal Logic ---
     optionsButton.addEventListener('click', () => {
+        attemptMusicPlaybackAfterInteraction();
         supportsVisionCheckbox.checked = visionSupportedByCurrentModel; 
         showModal(optionsModal);
     });
@@ -591,6 +680,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (event.target === backgroundSelectorModal) { 
             hideModal(backgroundSelectorModal);
+        }
+        if (event.target === musicSettingsModal) { 
+            hideModal(musicSettingsModal);
         }
     }
     window.addEventListener('click', closeModalOnClickOutside);
@@ -731,7 +823,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const result = await apiRequest('/api/memory', 'DELETE', null, errorMessages.gameScreen);
         if (result && result.success && !result.error) { 
             alert('Current character data deleted. You will now be taken to the character creation screen.');
-            localStorage.removeItem(LAST_BACKGROUND_KEY); // Clear last background on new character
+            localStorage.removeItem(LAST_BACKGROUND_KEY); 
+            localStorage.removeItem(LAST_MUSIC_TRACK_KEY); 
+            localStorage.removeItem(LAST_MUSIC_VOLUME_KEY); 
+            bgMusicPlayer.pause(); 
+            bgMusicPlayer.src = ""; 
+            initialMusicPlayed = false; // Reset flag
+
             currentUserData = {}; 
             currentCharacterPersonalityText = '';
             currentCharacterSetupData = {};
@@ -750,6 +848,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Background Change Logic ---
     changeBackgroundButton.addEventListener('click', async () => {
+        attemptMusicPlaybackAfterInteraction();
         try {
             displayError(errorMessages.gameScreen, ''); 
             const backgrounds = await apiRequest('/api/backgrounds', 'GET', null, errorMessages.gameScreen); 
@@ -768,7 +867,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         option.value = bgFile;
                         option.textContent = bgFile.replace(/\.(png|jpe?g|gif|webp)$/i, '').replace(/_/g, ' ');
                         if (bgFile === lastBg) {
-                            option.selected = true; // Pre-select the current/last used background
+                            option.selected = true; 
                         }
                         backgroundSelectorInput.appendChild(option);
                     });
@@ -786,6 +885,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     applyBackgroundButton.addEventListener('click', async () => {
+        attemptMusicPlaybackAfterInteraction();
         const selectedBackgroundFile = backgroundSelectorInput.value;
         if (!selectedBackgroundFile) {
             alert('Please select a background from the list.');
@@ -793,7 +893,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         backgroundImage.src = `/assets/backgrounds/${selectedBackgroundFile}`;
-        localStorage.setItem(LAST_BACKGROUND_KEY, selectedBackgroundFile); // Save to localStorage
+        localStorage.setItem(LAST_BACKGROUND_KEY, selectedBackgroundFile); 
         hideModal(backgroundSelectorModal);
         applyBackgroundButton.disabled = true; 
 
@@ -807,6 +907,61 @@ document.addEventListener('DOMContentLoaded', () => {
 
     closeBackgroundSelectorModalButton.addEventListener('click', () => {
         hideModal(backgroundSelectorModal);
+    });
+
+    // --- Music Settings Logic ---
+    musicSettingsButton.addEventListener('click', async () => {
+        attemptMusicPlaybackAfterInteraction();
+        try {
+            displayError(errorMessages.gameScreen, '');
+            const musicTracks = await apiRequest('/api/music', 'GET', null, errorMessages.gameScreen);
+            if (musicTracks && Array.isArray(musicTracks)) {
+                musicTrackSelector.innerHTML = '';
+                if (musicTracks.length === 0) {
+                    const option = document.createElement('option');
+                    option.textContent = 'No music found in assets/bg_music';
+                    option.disabled = true;
+                    musicTrackSelector.appendChild(option);
+                } else {
+                    const currentTrack = localStorage.getItem(LAST_MUSIC_TRACK_KEY) || DEFAULT_MUSIC_TRACK;
+                    musicTracks.forEach(trackFile => {
+                        const option = document.createElement('option');
+                        option.value = trackFile;
+                        option.textContent = trackFile.replace(/\.(mp3|wav|ogg)$/i, '').replace(/_/g, ' ');
+                        if (trackFile === currentTrack) {
+                            option.selected = true;
+                        }
+                        musicTrackSelector.appendChild(option);
+                    });
+                }
+                musicVolumeSlider.value = bgMusicPlayer.volume; // Reflect current player volume
+                showModal(musicSettingsModal);
+            } else {
+                 if (!errorMessages.gameScreen.textContent) { 
+                     displayError(errorMessages.gameScreen, musicTracks?.error || 'Failed to load music list.');
+                }
+            }
+        } catch (error) {
+            displayError(errorMessages.gameScreen, 'Error trying to fetch music list: ' + error.message);
+        }
+    });
+
+    musicTrackSelector.addEventListener('change', () => {
+        const selectedTrack = musicTrackSelector.value;
+        if (selectedTrack) {
+            playMusic(selectedTrack, bgMusicPlayer.volume); // Play new track with current volume
+            localStorage.setItem(LAST_MUSIC_TRACK_KEY, selectedTrack);
+        }
+    });
+
+    musicVolumeSlider.addEventListener('input', () => { 
+        const newVolume = parseFloat(musicVolumeSlider.value);
+        bgMusicPlayer.volume = newVolume;
+        localStorage.setItem(LAST_MUSIC_VOLUME_KEY, newVolume.toString());
+    });
+
+    closeMusicSettingsModalButton.addEventListener('click', () => {
+        hideModal(musicSettingsModal);
     });
 
 

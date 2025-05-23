@@ -2,13 +2,13 @@ body {
     font-family: sans-serif;
     margin: 0;
     background-color: #FFC5D3; /* Pastel Pink */
-    color: #333; /* Default text color for non-form elements */
+    color: #333; 
     display: flex;
     justify-content: center;
     align-items: center;
     min-height: 100vh;
     box-sizing: border-box;
-    overflow: hidden; /* Prevent scrollbars on body if game screen is full */
+    overflow: hidden; 
 }
 
 #app-container {
@@ -25,7 +25,7 @@ body {
 }
 
 .form-box {
-    background-color: rgba(0, 0, 0, 0.35); /* Semi-transparent dark */
+    background-color: rgba(0, 0, 0, 0.35); 
     color: white;
     padding: 25px;
     border-radius: 10px;
@@ -74,7 +74,7 @@ body {
 }
 
 .form-box button {
-    background-color: #FF69B4; /* Hot Pink for buttons */
+    background-color: #FF69B4; 
     color: white;
     padding: 12px 18px;
     border: none;
@@ -86,7 +86,7 @@ body {
 }
 
 .form-box button:hover {
-    background-color: #FF1493; /* Deeper Pink on hover */
+    background-color: #FF1493; 
 }
 
 .form-box button:disabled {
@@ -95,8 +95,8 @@ body {
 }
 
 .error-message {
-    color: #FFDDDD; /* Light pink for errors for visibility on dark bg */
-    background-color: rgba(139, 0, 0, 0.5); /* Dark red transparent bg */
+    color: #FFDDDD; 
+    background-color: rgba(139, 0, 0, 0.5); 
     padding: 5px;
     border-radius: 3px;
     font-size: 0.9em;
@@ -257,7 +257,6 @@ body {
 }
 
 .modal { 
-    display: none; 
     position: fixed; 
     z-index: 100; 
     left: 0;
@@ -266,32 +265,30 @@ body {
     height: 100%; 
     overflow: auto; 
     background-color: rgba(0,0,0,0.6); 
-    /* Added for centering modal content */
-    display: none; /* Initially hidden */
-    justify-content: center; /* Horizontal centering */
-    align-items: center; /* Vertical centering */
-    text-align: center; /* For inline-block children if any */
+    display: none; 
+    justify-content: center; 
+    align-items: center; 
+    text-align: center; 
 }
 
 .modal-content {
-    /* Removed margin: 5% auto; as .modal now handles centering */
     width: 90%;
     max-width: 500px; 
     position: relative;
     box-sizing: border-box;
-    display: inline-block; /* Allows text-align: center on parent to work */
-    text-align: left; /* Reset text-align for content inside */
+    display: inline-block; 
+    text-align: left; 
 }
 
-/* Ensure form-box styles apply correctly inside modals */
 .modal .form-box {
     width: 100%; 
     margin: 0;
-    text-align: left; /* Ensure form content is left-aligned */
+    text-align: left; 
 }
 
+
 #options-modal .modal-content h2 {
-    text-align: center; /* Keep h2 centered */
+    text-align: center; 
     margin-bottom: 25px;
 }
 
@@ -453,21 +450,122 @@ body {
     margin-bottom: 8px;
 }
 #background-selector-modal .game-select,
-#background-selector-modal #backgroundSelectorInput { /* Target specifically for consistency */
+#background-selector-modal #backgroundSelectorInput { 
     width: 100%;
     padding: 10px;
     margin-bottom: 20px;
-    background-color: rgba(0, 0, 0, 0.3); /* Darker background for select */
-    color: white; /* Text color for select */
+    background-color: rgba(0, 0, 0, 0.3); 
+    color: white; 
     border: 1px solid rgba(255, 255, 255, 0.5); 
     border-radius: 5px;
 }
 #background-selector-modal #backgroundSelectorInput option {
-    background-color: rgba(50, 50, 50, 0.9); /* Background for options when dropdown is open */
-    color: white; /* Text color for options */
+    background-color: rgba(50, 50, 50, 0.9); 
+    color: white; 
 }
 
 #background-selector-modal .game-button { 
     width: 100%;
     margin-right: 0; 
+}
+
+/* Music Settings Modal Specifics */
+#music-settings-modal .modal-content h2 {
+    text-align: center;
+    margin-bottom: 20px;
+}
+#music-settings-modal .modal-content label {
+    color: white;
+    margin-bottom: 8px;
+}
+#music-settings-modal .game-select, 
+#music-settings-modal #musicTrackSelector {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 20px;
+    background-color: rgba(0, 0, 0, 0.3);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    border-radius: 5px;
+}
+#music-settings-modal #musicTrackSelector option {
+    background-color: rgba(50, 50, 50, 0.9);
+    color: white;
+}
+#music-settings-modal input[type="range"] {
+    width: 100%;
+    margin-bottom: 20px;
+    cursor: pointer;
+    /* Ensure default appearance is used if custom styles aren't fully supported */
+    -webkit-appearance: none; /* Required for WebKit/Blink custom styling */
+    appearance: none; /* Standard property */
+    background: transparent; /* Remove default track background in some browsers */
+}
+
+/* Custom Range Slider Track */
+#music-settings-modal input[type="range"]::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 8.4px;
+  cursor: pointer;
+  background: #FF69B4; /* Hot Pink track */
+  border-radius: 1.3px;
+  border: 0.2px solid #010101;
+}
+#music-settings-modal input[type="range"]::-moz-range-track {
+  width: 100%;
+  height: 8.4px;
+  cursor: pointer;
+  background: #FF69B4;
+  border-radius: 1.3px;
+  border: 0.2px solid #010101;
+}
+/* MS Track (Edge, IE) - basic styling */
+#music-settings-modal input[type="range"]::-ms-track {
+  width: 100%;
+  height: 8.4px;
+  cursor: pointer;
+  background: transparent; /* IE11 needs this */
+  border-color: transparent;
+  color: transparent;
+}
+#music-settings-modal input[type="range"]::-ms-fill-lower {
+  background: #FF69B4;
+  border: 0.2px solid #010101;
+  border-radius: 2.6px;
+}
+#music-settings-modal input[type="range"]::-ms-fill-upper {
+  background: #FF69B4; /* Or a lighter shade for the 'unfilled' part if desired */
+  border: 0.2px solid #010101;
+  border-radius: 2.6px;
+}
+
+
+/* Custom Range Slider Thumb */
+#music-settings-modal input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; /* Essential */
+  height: 20px;
+  width: 20px;
+  border-radius: 50%;
+  background: #ffffff !important; /* White thumb, !important to override defaults if needed */
+  cursor: pointer;
+  margin-top: -6px; /* Adjust to center thumb on track */
+  box-shadow: 0 0 2px rgba(0,0,0,0.5);
+}
+#music-settings-modal input[type="range"]::-moz-range-thumb {
+  height: 20px;
+  width: 20px;
+  border-radius: 50%;
+  background: #ffffff !important; /* White thumb */
+  cursor: pointer;
+  border: none; 
+  box-shadow: 0 0 2px rgba(0,0,0,0.5);
+}
+#music-settings-modal input[type="range"]::-ms-thumb {
+  height: 20px;
+  width: 20px;
+  border-radius: 50%;
+  background: #ffffff !important; /* White thumb */
+  cursor: pointer;
+  margin-top: 0px; /* MS may not need negative margin */
+  box-shadow: 0 0 2px rgba(0,0,0,0.5);
 }
