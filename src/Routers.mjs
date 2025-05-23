@@ -1,13 +1,13 @@
 // Routers.mjs
 import { Router } from 'express';
-import fs from 'node:fs/promises'; // For reading user_config for PATCH
+import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'url';
 
 import { updateTextFile, updateMemoryFile } from './Write_To.mjs';
 import { readTextFile, readMemoryFile } from './Read_File.mjs';
 import { generateInstructionPrompt,  generateSpritePrompt, generatePersonalityPrompt, generateDiaryPrompt } from './Generate_Prompt.mjs';
-import { readContents, pickValidSprite } from './get_images.mjs'; // Corrected: was get_images.mjs
+import { readContents, pickValidSprite } from './get_images.mjs';
 import { ask_LLM, isApiKeyEffectivelyConfigured, getVisionSupportStatus, reloadConfigAndReinitializeClient, forceReinitializeOpenAI } from './LLM_Request.mjs';
 
 const router = Router();
@@ -29,7 +29,7 @@ const BACKUPS_DIR_PATH = path.join(PROJECT_ROOT, 'backups');
 
 // POST Request to get user's API
 router.post('/api/api_key', async (req, res) => {
-  const { model, key, endpoint, supports_vision } = req.body; // Added supports_vision
+  const { model, key, endpoint, supports_vision } = req.body;
 
   if (!model || !key || !endpoint) return res.status(400).json({ error: 'One or more fields are empty.' });
 
@@ -78,7 +78,6 @@ router.patch('/api/config/vision', async (req, res) => {
                 currentConfig = JSON.parse(configFileContent);
             }
         } catch (readError) {
-            // File might not exist, which is fine, we'll create it.
             console.warn(`Could not read ${USER_CONFIG_PATH} before patching vision, will create/overwrite.`);
         }
         
@@ -88,7 +87,7 @@ router.patch('/api/config/vision', async (req, res) => {
         
         // Reload LLM client config
         const reloaded = reloadConfigAndReinitializeClient();
-        if (!reloaded && currentConfig.key) { // only warn if key was set, otherwise it's expected to fail reinit
+        if (!reloaded && currentConfig.key) {
              console.warn("LLM client failed to re-initialize after vision config update. May need full API key setup if not done.");
         }
 
@@ -103,7 +102,6 @@ router.patch('/api/config/vision', async (req, res) => {
 
 // POST Request to get user's data
 router.post('/api/user_data', async (req, res) => {
-  // ... (rest of the code using USER_DATA_PATH)
   const { name, 
     gender, 
     pronouns, 
@@ -163,17 +161,17 @@ router.patch('/api/user_data', async (req, res) => {
       "personality": personality
     };
     for (const attribute in data) {
-      if (data[attribute] !== '' || attribute === 'name' || attribute === 'gender' || attribute === 'pronouns') { // Allow clearing optional fields, but not required ones
+      if (data[attribute] !== '' || attribute === 'name' || attribute === 'gender' || attribute === 'pronouns') {
         currentUserData[attribute] = data[attribute];
       }
     };
-    if (!currentUserData.name) return res.status(400).json({ error: 'Cannot leave name empty.'}); // Changed to return 400
+    if (!currentUserData.name) return res.status(400).json({ error: 'Cannot leave name empty.'});
     if (!currentUserData.gender) return res.status(400).json({ error: 'Cannot leave gender empty.'});
     if (!currentUserData.pronouns) return res.status(400).json({ error: 'Cannot leave pronouns empty.'});
 
     const jsonData = JSON.stringify(currentUserData, null, 2);
     await updateTextFile(jsonData, USER_DATA_PATH, 'w');
-    res.status(200).json(currentUserData); // 200 for update
+    res.status(200).json(currentUserData);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Couldn\'t save user\'s data.' });
@@ -183,7 +181,7 @@ router.patch('/api/user_data', async (req, res) => {
 // DELETE Request to delete user's data
 router.delete('/api/user_data', async (req, res) => {
   try {
-    await updateTextFile('', USER_DATA_PATH, 'w'); // Use USER_DATA_PATH
+    await updateTextFile('', USER_DATA_PATH, 'w');
     res.status(204).json({ message: 'Data deleted succesfully.' });
   } catch (e) {
     console.error(e);
@@ -229,8 +227,7 @@ router.patch('/api/personality', async (req, res) => {
 router.post('/api/message', async (req, res) => {
   const { message, image_data } = req.body; // image_data is base64 string
   if (!message && !image_data) return res.status(400).json({ error: 'Message or image required.' });
-  if (!message && image_data) { // If only image, provide a default message
-      // message = "User sent an image."; // Or "What do you see in this image?" - Handled by LLM prompt structure
+  if (!message && image_data) {
   }
 
 

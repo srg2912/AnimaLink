@@ -33,6 +33,4 @@ const pickValidSprite = async (rawResponse, path) => {
     }
 };
 
-// readContents('./assets/backgrounds').then(console.log);
-
 export { readContents, pickValidSprite };

@@ -48,7 +48,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const optionsButton = document.getElementById('optionsButton');
     const optionsModal = document.getElementById('options-modal');
     const closeOptionsModalButton = document.getElementById('closeOptionsModal');
-    const supportsVisionCheckbox = document.getElementById('supportsVisionCheckbox'); // In Options modal
+    const supportsVisionCheckbox = document.getElementById('supportsVisionCheckbox');
     const optChangeApiKey = document.getElementById('optChangeApiKey');
     const optChangeUserData = document.getElementById('optChangeUserData');
     const optChangeCharProfile = document.getElementById('optChangeCharProfile');
@@ -106,7 +106,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function displayError(element, message) {
-        // ... (existing displayError function)
         const finalMessage = message || "An unknown error occurred.";
         if (element) {
             element.textContent = finalMessage;
@@ -119,7 +118,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function apiRequest(url, method, body, errorElement, isInitialCheck = false) {
-        // ... (existing apiRequest function)
          try {
             const options = {
                 method: method,
@@ -130,13 +128,12 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             const response = await fetch(url, options);
             
-            if (errorElement) displayError(errorElement, ''); // Clear previous error
+            if (errorElement) displayError(errorElement, '');
 
             if (response.status === 204) { // No Content
                 return { success: true, status: response.status };
             }
 
-            // For initial checks, 404 might be expected (e.g., user data not found yet)
             if (isInitialCheck && response.status === 404) {
                 // Try to parse JSON, but if it fails, return a simple notFound indicator
                 const responseDataOnError = await response.json().catch(() => ({ notFound: true, status: 404 }));
@@ -145,34 +142,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Try to parse JSON for all other cases
             const responseData = await response.json().catch(async (e) => {
-                // If JSON parsing fails, capture the text for debugging
                 const text = await response.text().catch(() => "Could not read response text.");
                 console.error("Failed to parse JSON response. Status:", response.status, "Response text:", text, "Error:", e);
                 return { parseError: true, status: response.status, text: text }; 
             });
 
             if (responseData.parseError) {
-                 // Display error only if not an initial check where some errors are "normal"
                 if (!isInitialCheck) {
                     displayError(errorElement, `Server returned non-JSON response (Status ${responseData.status}). Check console for details.`);
                 }
-                return responseData; // Return the object with parseError flag
+                return responseData;
             }
 
-            if (!response.ok) {
-                // Display error if not an initial check OR if it's an error other than a "normal" 404 during initial checks
+            if (!response.ok) {ks
                 if (!isInitialCheck || (responseData && responseData.error && response.status !== 404)) {
                     displayError(errorElement, responseData?.error || `Request failed: ${response.status} ${response.statusText}`);
                 }
-                return responseData; // Return the error response data from server
+                return responseData;
             }
-            return responseData; // Success
+            return responseData;
         } catch (error) {
             console.error(`Network error or other issue in apiRequest for ${url}:`, error);
-            if (!isInitialCheck) { // Only display prominently if not an initial background check
+            if (!isInitialCheck) {
                 displayError(errorElement, `Network error: ${error.message}`);
             }
-            return { networkError: true, message: error.message }; // Return an object indicating network error
+            return { networkError: true, message: error.message };
         }
     }
 
@@ -197,12 +191,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function changeSprite(spriteName) {
-        // ... (existing changeSprite function)
         if (!currentSpriteFolder || !spriteName) {
             console.warn("Attempted to change sprite without folder or name:", currentSpriteFolder, spriteName);
             if (currentSpriteFolder && !spriteName) spriteName = 'normal.png'; // Fallback if name is missing but folder exists
             else if (!currentSpriteFolder) { // If no folder at all, cannot load any sprite
-                characterSprite.style.opacity = 0; // Hide if no folder
+                characterSprite.style.opacity = 0;
                 console.error("No sprite folder set for character.");
                 return;
             }
@@ -219,15 +212,14 @@ document.addEventListener('DOMContentLoaded', () => {
             };
             characterSprite.onerror = () => {
                 console.error(`Failed to load sprite: ${newSrc}. Trying normal.png.`);
-                // Attempt to load a default/fallback sprite from the *same* folder
                 characterSprite.src = `/assets/sprites/${currentSpriteFolder}/normal.png`; 
                 characterSprite.onload = () => characterSprite.style.opacity = 1; // Show fallback
                 characterSprite.onerror = () => { // If even normal.png fails in that folder
                     console.error(`Failed to load fallback normal.png in ${currentSpriteFolder}. Hiding sprite.`);
-                    characterSprite.style.opacity = 0; // Hide if fallback also fails
+                    characterSprite.style.opacity = 0;
                 };
             };
-        }, 300); // Match CSS transition duration
+        }, 300);
     }
 
     async function initializeApp() {
@@ -284,11 +276,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 displayError(errorMessages.userData, `Error fetching user data: ${userDataResponse.error}`);
             }
         }
-        toggleAttachButtonVisibility(); // Ensure button visibility is correct after initial screen choice
+        toggleAttachButtonVisibility();
     }
     
     function prefillUserDataForm() {
-        // ... (existing prefillUserDataForm)
          if (currentUserData && Object.keys(currentUserData).length > 0) {
             forms.userData.name.value = currentUserData.name || '';
             forms.userData.gender.value = currentUserData.gender || '';
@@ -298,14 +289,13 @@ document.addEventListener('DOMContentLoaded', () => {
             forms.userData.hobbies.value = currentUserData.hobbies || '';
             forms.userData.personality.value = currentUserData.personality || '';
         } else {
-            forms.userData.reset(); // Clear form if no data
+            forms.userData.reset();
         }
     }
 
     async function goToGameScreen(loadingExisting = false) {
-        // ... (existing goToGameScreen, ensure addMessageToDisplay is called with image_data if present)
         if (!currentSpriteFolder && currentCharacterSetupData && currentCharacterSetupData.sprite) {
-            currentSpriteFolder = currentCharacterSetupData.sprite; // Ensure it's set if coming from setup
+            currentSpriteFolder = currentCharacterSetupData.sprite;
         }
 
         if (!currentSpriteFolder) {
@@ -313,9 +303,9 @@ document.addEventListener('DOMContentLoaded', () => {
             showScreen('characterSetup'); 
             return;
         }
-        backgroundImage.src = '/assets/backgrounds/living_room.png'; // Or make this configurable
+        backgroundImage.src = '/assets/backgrounds/living_room.png';
         
-        messageDisplay.innerHTML = ''; // Clear previous messages
+        messageDisplay.innerHTML = '';
         if (loadingExisting) {
             const shortTermMemory = await apiRequest('/api/memory/short_term', 'GET', null, errorMessages.gameScreen);
             if (shortTermMemory && Array.isArray(shortTermMemory) && shortTermMemory.length > 0) {
@@ -323,17 +313,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (lastAssistantMessage && lastAssistantMessage.sprite) {
                     changeSprite(lastAssistantMessage.sprite);
                 } else {
-                    changeSprite('normal.png'); // Default sprite if no history or no sprite in last message
+                    changeSprite('normal.png');
                 }
-                // Populate some recent messages, including images
-                shortTermMemory.slice(-10).forEach(msg => { // Show more messages
-                    addMessageToDisplay(msg.role, msg.content, msg.image_data); // Pass image_data
+                shortTermMemory.slice(-10).forEach(msg => {
+                    addMessageToDisplay(msg.role, msg.content, msg.image_data);
                 });
 
             } else {
-                changeSprite('normal.png'); // Default if no history
+                changeSprite('normal.png');
                  if (shortTermMemory && shortTermMemory.error) {
-                    // Error already displayed by apiRequest
                 } else if (!Array.isArray(shortTermMemory)) {
                     displayError(errorMessages.gameScreen, "Failed to load chat history: Invalid response from server.");
                 }
@@ -341,21 +329,60 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             changeSprite('normal.png'); // Default sprite for new game
         }
-        showScreen('game'); // This will also call toggleAttachButtonVisibility
-    }
-
-    async function refreshAppAndCharacterData() {
-        console.log("Refreshing app and character data...");
-        //currentCharacterPersonalityText = '';
-        //currentCharacterSetupData = {};
-        //currentSpriteFolder = '';
-        //messageDisplay.innerHTML = ''; // Clear chat
-
-        await initializeApp(); // This will re-check API, user, and then character data
+        showScreen('game');
     }
 
     async function initializeApp() {
-        toggleAttachButtonVisibility(); // Ensure button visibility is correct after initial screen choice
+        const apiKeyStatusResponse = await apiRequest('/api/status/api_key', 'GET', null, null, true);
+
+        if (!apiKeyStatusResponse || apiKeyStatusResponse.networkError) {
+            showScreen('apiKey');
+            return;
+        }
+        
+        // Update vision support state on the client
+        visionSupportedByCurrentModel = apiKeyStatusResponse.supports_vision || false;
+        supportsVisionCheckbox.checked = visionSupportedByCurrentModel;
+        apiKeySupportsVisionCheckbox.checked = visionSupportedByCurrentModel;
+
+        // If not configured, show API key screen
+        if (!apiKeyStatusResponse.configured) {
+            showScreen('apiKey');
+            return;
+        }
+
+        // API Key is configured, proceed to check User Data
+        const userDataResponse = await apiRequest('/api/user_data', 'GET', null, null, true); 
+        
+        if (userDataResponse && userDataResponse.name && !userDataResponse.error && !userDataResponse.notFound) {
+            currentUserData = userDataResponse;
+
+            // User Data exists, check Character Profile
+            const charProfileResponse = await apiRequest('/api/personality', 'GET', null, null, true);
+            if (charProfileResponse && charProfileResponse.profile && charProfileResponse.general?.sprite && !charProfileResponse.error && !charProfileResponse.notFound) {
+                currentCharacterPersonalityText = charProfileResponse.profile;
+                currentCharacterSetupData = charProfileResponse.general; 
+                currentSpriteFolder = charProfileResponse.general.sprite;
+                
+                // Pre-fill character create form for editing context
+                generatedPersonalityTextarea.value = currentCharacterPersonalityText;
+                if (forms.characterCreate && forms.characterCreate.name) { // Check if form elements exist
+                    forms.characterCreate.name.value = currentCharacterSetupData.name || '';
+                    forms.characterCreate.looks.value = currentCharacterSetupData.looks || '';
+                    forms.characterCreate.personality.value = currentCharacterSetupData.rawPersonalityInput || ''; 
+                    forms.characterCreate.language.value = currentCharacterSetupData.language || 'English';
+                    forms.characterCreate.sprite.value = currentSpriteFolder || '';
+                }
+                
+                await goToGameScreen(true);
+            } else {
+                prefillUserDataForm(); 
+                showScreen('characterSetup');
+            }
+        } else {
+            showScreen('userData');
+        }
+        toggleAttachButtonVisibility(); 
     }
 
     // --- Event Listeners ---
@@ -395,7 +422,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // User Data Form
     forms.userData.addEventListener('submit', async (e) => {
-        // ... (existing userData form submit logic)
          e.preventDefault();
         const formData = new FormData(forms.userData);
         let data = Object.fromEntries(formData.entries());
@@ -420,25 +446,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 optionsModal.style.display = 'none'; 
                 isUserDataEditing = false;
                 userDataSubmitButton.textContent = 'Save User Data';
-                // No screen change, stay in current context (e.g., game screen if accessed from options)
-                 showScreen('game'); // Or whatever screen they were on
+                 showScreen('game');
             } else {
-                // User data saved for the first time
                 const charProfileResponse = await apiRequest('/api/personality', 'GET', null, null, true);
                 if (charProfileResponse && charProfileResponse.profile && charProfileResponse.general?.sprite && !charProfileResponse.error && !charProfileResponse.notFound) {
-                    // Existing character profile found, go to game
                     currentCharacterPersonalityText = charProfileResponse.profile;
                     currentCharacterSetupData = charProfileResponse.general;
                     currentSpriteFolder = charProfileResponse.general.sprite;
-                    generatedPersonalityTextarea.value = currentCharacterPersonalityText; // Prefill for editing if they go back
+                    generatedPersonalityTextarea.value = currentCharacterPersonalityText;
                     await goToGameScreen(true);
                 } else {
-                    // No character profile, go to character setup
                     showScreen('characterSetup');
                 }
             }
         } else if (result && result.error) {
-            // Error already displayed by apiRequest
         } else if (!result) {
             displayError(errorMessages.userData, "Failed to save user data. Unknown error.");
         }
@@ -446,7 +467,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Character Create Form
     forms.characterCreate.addEventListener('submit', async (e) => {
-        // ... (existing characterCreate form submit logic)
          e.preventDefault();
         const formData = new FormData(forms.characterCreate);
         const data = Object.fromEntries(formData.entries());
@@ -460,8 +480,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const result = await apiRequest('/api/personality', 'POST', data, errorMessages.characterCreate);
         if (result && result.characterProfile && !result.error) {
             currentCharacterPersonalityText = result.characterProfile;
-            // currentCharacterSetupData now includes language and rawPersonalityInput from backend
-            // The POST request to /api/personality should return the full general.json data
             const generalInfo = await apiRequest('/api/personality', 'GET', null, errorMessages.characterCreate);
             if (generalInfo && generalInfo.general) {
                 currentCharacterSetupData = generalInfo.general;
@@ -477,7 +495,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Save Edited Personality
     saveEditedPersonalityButton.addEventListener('click', async () => {
-        // ... (existing saveEditedPersonality logic)
         const editedProfile = generatedPersonalityTextarea.value;
         if (!editedProfile.trim()) {
             displayError(errorMessages.characterEdit, 'Personality cannot be empty.');
@@ -490,19 +507,16 @@ document.addEventListener('DOMContentLoaded', () => {
             if (isCharacterProfileEditing) { 
                 optionsModal.style.display = 'none';
                 isCharacterProfileEditing = false;
-                // Return to game screen or previous context
                 characterEditSection.style.display = 'none'; 
-                forms.characterCreate.style.display = 'block'; // Show the form again
-                showScreen('game'); // Or whatever screen they were on
+                forms.characterCreate.style.display = 'block';
+                showScreen('game');
             } else {
-                 // If was in initial setup, stay on characterSetup screen to click "Continue"
-                 characterEditSection.style.display = 'block'; // Keep it visible
+                 characterEditSection.style.display = 'block';
             }
         }
     });
     
-    continueToGameButtonElement.addEventListener('click', async () => { // Made async
-        // Ensure currentCharacterSetupData is populated, especially currentSpriteFolder
+    continueToGameButtonElement.addEventListener('click', async () => {
         if (!currentCharacterSetupData.sprite && forms.characterCreate.sprite.value) {
             currentCharacterSetupData.sprite = forms.characterCreate.sprite.value;
         }
@@ -517,18 +531,15 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     async function handleInteractionResponse(result) {
-        // ... (existing handleInteractionResponse logic)
-        if (result && result.content) { // Assuming result is the assistant's message object
-            addMessageToDisplay('assistant', result.content); // Image data for assistant is not handled yet
+        if (result && result.content) {
+            addMessageToDisplay('assistant', result.content);
             if (result.sprite) {
                 changeSprite(result.sprite);
             }
         } else {
-            // Error might have been displayed by apiRequest
-            // Add a generic message if nothing specific
             const errorMessage = result?.error || "LLM interaction request failed or returned an invalid response.";
             addMessageToDisplay('assistant', `Sorry, I had trouble responding. (${errorMessage})`);
-            if (!result?.error && errorMessages.gameScreen) { // If apiRequest didn't display error
+            if (!result?.error && errorMessages.gameScreen) {
                  displayError(errorMessages.gameScreen, errorMessage);
             }
         }
@@ -537,7 +548,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Send Message
     sendMessageButton.addEventListener('click', async () => {
         const messageText = userMessageInput.value.trim();
-        if (!messageText && !selectedImageBase64) return; // Need text or image
+        if (!messageText && !selectedImageBase64) return;
 
         // Add user message to display (with potential image)
         addMessageToDisplay('user', messageText || "[Image]", selectedImageBase64); // Display "[Image]" if no text
@@ -567,7 +578,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Perform Action Button
     performActionButton.addEventListener('click', async () => {
-        // ... (existing performActionButton logic)
         const selectedAction = actionSelector.value;
         if (!selectedAction) return;
 
@@ -608,14 +618,14 @@ document.addEventListener('DOMContentLoaded', () => {
             };
             reader.readAsDataURL(file);
         }
-        imageUploadInput.value = ''; // Reset file input to allow re-selecting same file
+        imageUploadInput.value = '';
     });
 
     function removeImagePreview() {
         selectedImageBase64 = null;
         imagePreview.src = '#';
         imagePreviewContainer.style.display = 'none';
-        imageUploadInput.value = ''; // Clear the file input
+        imageUploadInput.value = '';
     }
     removeImagePreviewButton.addEventListener('click', removeImagePreview);
 
@@ -644,7 +654,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     function closeModalOnClickOutside(event) {
-        // ... (existing closeModalOnClickOutside)
         if (event.target === optionsModal) {
             optionsModal.style.display = 'none';
         }
@@ -663,7 +672,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     optChangeUserData.addEventListener('click', () => {
-        // ... (existing optChangeUserData)
         optionsModal.style.display = 'none';
         isUserDataEditing = true;
         userDataSubmitButton.textContent = 'Update User Data';
@@ -682,21 +690,20 @@ document.addEventListener('DOMContentLoaded', () => {
         forms.characterCreate.language.value = currentCharacterSetupData.language || '';
         forms.characterCreate.sprite.value = currentSpriteFolder || currentCharacterSetupData.sprite || '';
         
-        generatedPersonalityTextarea.value = currentCharacterPersonalityText; // The actual LLM profile
+        generatedPersonalityTextarea.value = currentCharacterPersonalityText;
         
-        forms.characterCreate.style.display = 'none'; // Hide the generation part initially
-        characterEditSection.style.display = 'block'; // Show edit section directly
-        continueToGameButtonElement.style.display = 'none'; // Not relevant here
+        forms.characterCreate.style.display = 'none';
+        characterEditSection.style.display = 'block';
+        continueToGameButtonElement.style.display = 'none';
 
         showScreen('characterSetup');
     });
 
     async function showMemory(type) {
-        // ... (existing showMemory, ensure it handles msg.image_data for shortTerm)
         const endpoint = type === 'shortTerm' ? '/api/memory/short_term' : '/api/memory/long_term';
         const title = type === 'shortTerm' ? 'Chat History (Short-Term Memory)' : "Character's Diary (Long-Term Memory)";
         
-        const data = await apiRequest(endpoint, 'GET', null, null); // Error display handled by modal content itself
+        const data = await apiRequest(endpoint, 'GET', null, null);
         
         memoryViewerTitle.textContent = title;
         memoryViewerContent.innerHTML = ''; 
@@ -801,16 +808,14 @@ document.addEventListener('DOMContentLoaded', () => {
             currentCharacterPersonalityText = '';
             currentCharacterSetupData = {};
             currentSpriteFolder = '';
-            messageDisplay.innerHTML = ''; // Clear chat
-            generatedPersonalityTextarea.value = ''; // Clear textarea in setup screen
-            forms.characterCreate.reset(); // Reset character creation form
-            characterEditSection.style.display = 'none'; // Hide edit section
-            forms.characterCreate.style.display = 'block'; // Ensure create form is visible
-             continueToGameButtonElement.style.display = 'inline-block'; // Show continue button
+            messageDisplay.innerHTML = ''; 
+            generatedPersonalityTextarea.value = ''; 
+            forms.characterCreate.reset(); 
+            characterEditSection.style.display = 'none';
+            forms.characterCreate.style.display = 'block';
+             continueToGameButtonElement.style.display = 'inline-block';
 
-            showScreen('characterSetup'); // Navigate to character creation
-            // initializeApp() will be called implicitly or explicitly if needed by screen transitions
-            // Forcing a light refresh of config status might be good here
+            showScreen('characterSetup');
             const apiKeyStatusResponse = await apiRequest('/api/status/api_key', 'GET', null, null, true);
             if (apiKeyStatusResponse) {
                 visionSupportedByCurrentModel = apiKeyStatusResponse.supports_vision || false;

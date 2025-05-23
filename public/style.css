@@ -14,10 +14,8 @@ body {
 #app-container {
     width: 100%;
     max-width: 800px;
-    /* background-color: #fff; No longer white by default */
     padding: 20px;
     border-radius: 8px;
-    /* box-shadow: 0 0 10px rgba(0,0,0,0.1); Removed for flatter design */
     box-sizing: border-box;
 }
 
@@ -26,10 +24,9 @@ body {
     box-sizing: border-box;
 }
 
-/* Form Box Styling */
 .form-box {
     background-color: rgba(0, 0, 0, 0.35); /* Semi-transparent dark */
-    color: white; /* White font color */
+    color: white;
     padding: 25px;
     border-radius: 10px;
     box-shadow: 0 4px 15px rgba(0,0,0,0.2);
@@ -37,7 +34,7 @@ body {
 
 .form-box h2 {
     margin-top: 0;
-    color: white; /* White headers */
+    color: white;
     border-bottom: 1px solid rgba(255, 255, 255, 0.3);
     padding-bottom: 10px;
     margin-bottom: 20px;
@@ -47,7 +44,7 @@ body {
     display: block;
     margin-bottom: 8px;
     font-weight: bold;
-    color: white; /* White labels */
+    color: white;
 }
 
 .form-box input[type="text"],
@@ -62,13 +59,13 @@ body {
     border-radius: 5px;
     box-sizing: border-box;
     background-color: rgba(255, 255, 255, 0.1);
-    color: white; /* White text input */
+    color: white;
     font-size: 1em;
 }
 
 .form-box input::placeholder,
 .form-box textarea::placeholder {
-    color: rgba(255, 255, 255, 0.7); /* Light white placeholder */
+    color: rgba(255, 255, 255, 0.7);
 }
 
 .form-box textarea {
@@ -106,9 +103,8 @@ body {
     margin-top: 10px;
 }
 
-/* Game Screen Specific Styles */
 #game-screen {
-    position: fixed; /* Use fixed to ensure it covers viewport */
+    position: fixed;
     top: 0;
     left: 0;
     width: 100vw;
@@ -116,7 +112,7 @@ body {
     max-width: none; 
     overflow: hidden;
     background-color: #000; 
-    padding: 0; /* Remove padding for full screen */
+    padding: 0;
 }
 
 #background-container {
@@ -131,7 +127,7 @@ body {
 #background-image {
     width: 100%;
     height: 100%;
-    object-fit: cover; /* Stretch to fill container, cropping if necessary */
+    object-fit: cover;
 }
 
 #sprite-container {
@@ -140,34 +136,32 @@ body {
     left: 50%;
     transform: translateX(-50%);
     z-index: 2;
-    height: 75vh; /* 75% of viewport height */
-    width: auto;   /* Adjust width automatically */
-    max-width: 90vw; /* Prevent it from being too wide on wide screens */
+    height: 75vh;
+    width: auto;
+    max-width: 90vw;
     display: flex;
     justify-content: center;
-    align-items: flex-end; /* Align sprite to bottom of container */
+    align-items: flex-end;
 }
 
 #character-sprite {
-    max-height: 100%; /* Fill the height of sprite-container */
-    max-width: 100%; /* Don't exceed width of sprite-container */
-    object-fit: contain; /* Maintain aspect ratio, fit within bounds */
+    max-height: 100%;
+    max-width: 100%;
+    object-fit: contain;
     transition: opacity 0.5s ease-in-out;
 }
 
-/* Phone-like Chat Area */
 #chat-area {
     position: absolute;
     top: 50%;
-    right: 20px; /* Position on the right */
+    right: 20px;
     transform: translateY(-50%);
-    width: 25%; /* Typical phone width */
-    height: 90%; /* Tall, like a phone screen */
-    /*max-height: 600px;*/ /* Max height for very tall screens */
-    background-color: rgba(50, 50, 50, 0.85); /* Darker semi-transparent */
+    width: 25%;
+    height: 90%;
+    background-color: rgba(50, 50, 50, 0.85);
     color: white;
     padding: 15px;
-    border-radius: 20px; /* Rounded corners like a phone */
+    border-radius: 20px;
     z-index: 3;
     box-sizing: border-box;
     display: flex;
@@ -225,7 +219,6 @@ body {
     color: rgba(255,255,255,0.7);
 }
 
-/* Game Controls (Options, Actions) */
 #left-controls {
     position: absolute;
     bottom: 20px;
@@ -239,7 +232,7 @@ body {
 #interaction-controls {
     display: flex;
     align-items: center;
-    gap: 8px; /* Space between select and button */
+    gap: 8px;
 }
 
 .game-button, .game-select {
@@ -255,11 +248,9 @@ body {
     background-color: rgba(0,0,0,0.8);
 }
 .game-select {
-    padding-right: 25px; /* Space for dropdown arrow */
+    padding-right: 25px;
 }
 
-
-/* Modal Styles - Ensure they use form-box styling if content is form-like */
 .modal-content {
     margin: 5% auto;
     width: 90%;
@@ -268,7 +259,6 @@ body {
     box-sizing: border-box;
 }
 
-/* Options Modal Specific Button Layout */
 #options-modal .modal-content {
     text-align: center;
 }
@@ -308,14 +298,13 @@ body {
     overflow-y: auto;
     white-space: pre-wrap; 
     word-wrap: break-word;
-    background-color: rgba(255, 255, 255, 0.05); /* Very subtle bg for content */
+    background-color: rgba(255, 255, 255, 0.05);
     padding: 10px;
     border: 1px solid rgba(255, 255, 255, 0.2);
     border-radius: 4px;
     color: white;
 }
 
-/* For inline labels with checkboxes */
 .inline-label {
     display: inline;
     margin-bottom: 0;
@@ -323,7 +312,7 @@ body {
     margin-left: 5px;
     vertical-align: middle;
 }
-.form-box div > input[type="checkbox"] { /* Target checkbox inside a div for spacing */
+.form-box div > input[type="checkbox"] {
     margin-bottom: 18px;
     vertical-align: middle;
 }
@@ -332,17 +321,17 @@ body {
 #input-area {
     display: flex;
     margin-top: auto;
-    align-items: center; /* Align items vertically for image preview */
+    align-items: center;
 }
 
 .attach-button {
-    padding: 10px 12px; /* Adjust padding for icon button */
-    font-size: 1.2em; /* Make icon slightly larger */
+    padding: 10px 12px;
+    font-size: 1.2em;
     margin-right: 8px;
 }
 
 #image-preview-container {
-    display: flex; /* Changed from 'none' by JS */
+    display: flex;
     align-items: center;
     margin-right: 8px;
     padding: 5px;
@@ -351,7 +340,7 @@ body {
 }
 
 #imagePreview {
-    max-width: 40px; /* Small preview */
+    max-width: 40px;
     max-height: 40px;
     border-radius: 3px;
     margin-right: 5px;
@@ -368,8 +357,8 @@ body {
 
 
 #message-display .message-image-thumbnail {
-    display: block; /* Or inline-block if you want text to wrap */
-    max-width: 150px; /* Adjust as needed */
+    display: block;
+    max-width: 150px;
     max-height: 150px;
     border-radius: 8px;
     margin-top: 8px;
@@ -377,70 +366,65 @@ body {
 }
 
 
-/* Ensure options modal checkbox label is styled correctly */
 #options-modal .modal-content label.inline-label {
-    color: white; /* If not already inherited */
+    color: white;
 }
 #options-modal .modal-content input[type="checkbox"] {
-    margin-right: 5px; /* Space between checkbox and label */
+    margin-right: 5px;
     vertical-align: middle;
 }
-#options-modal .modal-content div { /* Container for checkbox and label */
+#options-modal .modal-content div {
     margin-bottom: 15px;
     text-align: left;
-    padding-left: 10px; /* Align with buttons if they have margin auto */
+    padding-left: 10px;
 }
 
 
-/* Memory Viewer Modal Image Thumbnail */
 #memoryViewerContent .message-image-thumbnail {
     display: block;
-    max-width: 200px; /* Larger preview in modal */
+    max-width: 200px;
     max-height: 200px;
     border-radius: 5px;
     margin-top: 10px;
     border: 1px solid rgba(255,255,255,0.2);
 }
 
-/* Ensure options modal checkbox and label are aligned */
-#options-modal .modal-content div.checkbox-container { /* Add a class to the div */
+#options-modal .modal-content div.checkbox-container {
     display: flex;
-    align-items: center; /* Vertically align items in the flex container */
+    align-items: center;
     margin-bottom: 15px;
     text-align: left;
     padding-left: 10px; 
 }
 
 #options-modal .modal-content div.checkbox-container input[type="checkbox"] {
-    margin-right: 8px; /* Increased margin slightly */
-    margin-bottom: 0; /* Remove bottom margin if any from general input styling */
-    vertical-align: middle; /* Keep for fallback or non-flex scenarios */
+    margin-right: 8px;
+    margin-bottom: 0;
+    vertical-align: middle;
 }
 
 #options-modal .modal-content div.checkbox-container label.inline-label {
     color: white; 
     font-weight: normal;
-    margin-left: 0; /* Remove margin-left as flex gap or checkbox margin will handle it */
-    vertical-align: middle; /* Keep for fallback */
+    margin-left: 0;
+    vertical-align: middle;
 }
 
-
-/* General styling for form-box inline labels that might be reused */
 .form-box .checkbox-container {
     display: flex;
     align-items: center;
-    margin-bottom: 18px; /* Match other form element spacing */
+    margin-bottom: 18px;
 }
 
 .form-box .checkbox-container input[type="checkbox"] {
     margin-right: 8px;
     margin-bottom: 0;
-    vertical-align: middle; /* For good measure */
+    vertical-align: middle;
 }
 
 .form-box .checkbox-container .inline-label {
     display: inline;
     font-weight: normal;
-    vertical-align: middle; /* For good measure */
+    vertical-align: middle;
     margin-bottom: 0;
 }
