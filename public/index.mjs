@@ -54,6 +54,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const optChangeCharProfile = document.getElementById('optChangeCharProfile');
     const optViewShortTermMemory = document.getElementById('optViewShortTermMemory');
     const optViewLongTermMemory = document.getElementById('optViewLongTermMemory');
+    const optCreateBackupButton = document.getElementById('optCreateBackup');
+    const optRestoreCharacterButton = document.getElementById('optRestoreCharacter');
+    const optCreateNewCharacterButton = document.getElementById('optCreateNewCharacter');
 
     // Memory Viewer Modal
     const memoryViewerModal = document.getElementById('memory-viewer-modal');
@@ -339,6 +342,20 @@ document.addEventListener('DOMContentLoaded', () => {
             changeSprite('normal.png'); // Default sprite for new game
         }
         showScreen('game'); // This will also call toggleAttachButtonVisibility
+    }
+
+    async function refreshAppAndCharacterData() {
+        console.log("Refreshing app and character data...");
+        //currentCharacterPersonalityText = '';
+        //currentCharacterSetupData = {};
+        //currentSpriteFolder = '';
+        //messageDisplay.innerHTML = ''; // Clear chat
+
+        await initializeApp(); // This will re-check API, user, and then character data
+    }
+
+    async function initializeApp() {
+        toggleAttachButtonVisibility(); // Ensure button visibility is correct after initial screen choice
     }
 
     // --- Event Listeners ---
@@ -735,6 +752,77 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     closeMemoryViewerModalButton.addEventListener('click', () => memoryViewerModal.style.display = 'none');
+
+    // Create Backup Button
+    optCreateBackupButton.addEventListener('click', async () => {
+        optionsModal.style.display = 'none';
+        const result = await apiRequest('/api/backups/create', 'POST', {}, errorMessages.gameScreen); // Use gameScreen error for feedback
+        if (result && result.message && !result.error) {
+            alert(result.message);
+        } else {
+            alert(`Backup creation failed: ${result?.error || 'Unknown error'}`);
+        }
+    });
+
+    // Restore Character Button
+    optRestoreCharacterButton.addEventListener('click', async () => {
+        optionsModal.style.display = 'none';
+        const confirmRestore = confirm("Restoring a backup will overwrite the current character's data and chat history. Please make a backup of the current character first if needed. Continue?");
+        if (!confirmRestore) return;
+
+        const characterName = prompt("Enter the exact name of the character whose backup you want to restore:");
+        if (characterName === null) return; // User pressed Cancel
+        if (!characterName.trim()) {
+            alert("Character name cannot be empty.");
+            return;
+        }
+
+        const result = await apiRequest(`/api/backups/${characterName.trim()}`, 'GET', null, errorMessages.gameScreen);
+        if (result && result.message && !result.error) {
+            alert(result.message);
+            // Reload application state to reflect restored data
+            await refreshAppAndCharacterData();
+        } else {
+            alert(`Failed to restore backup for "${characterName.trim()}": ${result?.error || 'Backup not found or error occurred.'}`);
+        }
+    });
+
+    // Create New Character Button
+    optCreateNewCharacterButton.addEventListener('click', async () => {
+        optionsModal.style.display = 'none';
+        const confirmCreateNew = confirm("This will delete the current character's profile, memories, and chat history. Make a backup first if you want to save the current character. Continue to create a new character?");
+        if (!confirmCreateNew) return;
+
+        const result = await apiRequest('/api/memory', 'DELETE', null, errorMessages.gameScreen);
+        // DELETE /api/memory returns 204 on success, so result.success will be true
+        if (result && result.success && !result.error) {
+            alert('Current character data deleted. You will now be taken to the character creation screen.');
+            // Clear local state related to the old character immediately
+            currentCharacterPersonalityText = '';
+            currentCharacterSetupData = {};
+            currentSpriteFolder = '';
+            messageDisplay.innerHTML = ''; // Clear chat
+            generatedPersonalityTextarea.value = ''; // Clear textarea in setup screen
+            forms.characterCreate.reset(); // Reset character creation form
+            characterEditSection.style.display = 'none'; // Hide edit section
+            forms.characterCreate.style.display = 'block'; // Ensure create form is visible
+             continueToGameButtonElement.style.display = 'inline-block'; // Show continue button
+
+            showScreen('characterSetup'); // Navigate to character creation
+            // initializeApp() will be called implicitly or explicitly if needed by screen transitions
+            // Forcing a light refresh of config status might be good here
+            const apiKeyStatusResponse = await apiRequest('/api/status/api_key', 'GET', null, null, true);
+            if (apiKeyStatusResponse) {
+                visionSupportedByCurrentModel = apiKeyStatusResponse.supports_vision || false;
+                supportsVisionCheckbox.checked = visionSupportedByCurrentModel;
+                apiKeySupportsVisionCheckbox.checked = visionSupportedByCurrentModel;
+                toggleAttachButtonVisibility();
+            }
+
+        } else {
+            alert(`Failed to delete current character data: ${result?.error || 'Unknown error'}`);
+        }
+    });
 
     // --- Initial Setup ---
     initializeApp();

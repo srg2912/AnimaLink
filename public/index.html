@@ -19,7 +19,7 @@
                 <input type="password" id="key" name="key" placeholder="Your API Key" required><br>
                 <label for="endpoint">Endpoint URL:</label>
                 <input type="url" id="endpoint" name="endpoint" placeholder="e.g., https://api.openai.com/v1" required><br>
-                <div>
+                <div class="checkbox-container">
                     <input type="checkbox" id="apiKeySupportsVision" name="supports_vision">
                     <label for="apiKeySupportsVision" class="inline-label">This model supports vision</label>
                 </div>
@@ -122,10 +122,10 @@
 
         <!-- Options Modal -->
         <div id="options-modal" class="modal" style="display: none;">
-            <div class="modal-content form-box">
+            <div class="modal-content form-box"> <!-- Added form-box for styling consistency -->
                 <span class="close-button" id="closeOptionsModal">×</span>
                 <h2>Options</h2>
-                <div>
+                <div class="checkbox-container">
                     <input type="checkbox" id="supportsVisionCheckbox">
                     <label for="supportsVisionCheckbox" class="inline-label">The current model supports vision</label>
                 </div>
@@ -134,6 +134,9 @@
                 <button id="optChangeCharProfile">Edit Character Profile</button>
                 <button id="optViewShortTermMemory">View Chat History</button>
                 <button id="optViewLongTermMemory">View Character Diary</button>
+                <button id="optCreateBackup" class="game-button">Create Backup</button>
+                <button id="optRestoreCharacter" class="game-button">Restore Character</button>
+                <button id="optCreateNewCharacter" class="game-button">Create New Character</button>
             </div>
         </div>
         

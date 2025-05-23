@@ -290,10 +290,10 @@ router.post('/api/message', async (req, res) => {
     await updateMemoryFile(SHORT_TERM_MEMORY_PATH, previousMessages);
 
     // Diary and Backup logic (remains the same)
-    if (assistantMessageEntry.id % 30 === 0) {
+    if (assistantMessageEntry.id % 20 === 0) {
       try {
         const diaryPrompt = generateDiaryPrompt(personality);
-        const contextWindow = previousMessages.slice(-8); // Use more context if possible/needed
+        const contextWindow = previousMessages.slice(-20); // Use more context if possible/needed
         const diaryEntryContent = await ask_LLM(diaryPrompt, '', contextWindow);
         const lastEntryId = previousEntries[previousEntries.length - 1]?.id ?? 0;
         previousEntries.push({
@@ -562,5 +562,41 @@ router.get('/api/personality', async (req, res) => {
   }
 });
 
+// POST Request to manually create a backup
+router.post('/api/backups/create', async (req, res) => {
+    try {
+        const generalString = await readTextFile(GENERAL_MEMORY_PATH);
+        if (!generalString || generalString.trim() === '{}') {
+            return res.status(404).json({ error: 'Character general info not found. Cannot create backup.' });
+        }
+        const generalData = JSON.parse(generalString);
+        if (!generalData.name) {
+            return res.status(400).json({ error: 'Character name not found in general info. Cannot create backup.' });
+        }
+
+        const shortTermData = JSON.parse(await readTextFile(SHORT_TERM_MEMORY_PATH));
+        const longTermData = JSON.parse(await readTextFile(LONG_TERM_MEMORY_PATH));
+        const personalityData = await readTextFile(PERSONALITY_PATH);
+        
+        const backupObject = { 
+            general: generalData, 
+            shortTerm: shortTermData, 
+            longTerm: longTermData, 
+            personality: personalityData 
+        };
+        
+        const backupFilePath = path.join(BACKUPS_DIR_PATH, `${generalData.name}_backup.json`);
+        await updateMemoryFile(backupFilePath, backupObject); // updateMemoryFile stringifies and writes
+
+        res.status(201).json({ message: `Backup for ${generalData.name} created successfully.`, filePath: backupFilePath });
+    } catch (error) {
+        console.error('Error during manual backup creation: ', error);
+        // Check if it's a file reading error (e.g., memory file missing)
+        if (error.code === 'ENOENT') {
+            return res.status(500).json({ error: 'Failed to create backup: A required memory file is missing.' });
+        }
+        res.status(500).json({ error: 'Failed to create backup.' });
+    }
+});
 
 export default router;

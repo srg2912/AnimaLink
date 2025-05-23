@@ -401,3 +401,46 @@ body {
     margin-top: 10px;
     border: 1px solid rgba(255,255,255,0.2);
 }
+
+/* Ensure options modal checkbox and label are aligned */
+#options-modal .modal-content div.checkbox-container { /* Add a class to the div */
+    display: flex;
+    align-items: center; /* Vertically align items in the flex container */
+    margin-bottom: 15px;
+    text-align: left;
+    padding-left: 10px; 
+}
+
+#options-modal .modal-content div.checkbox-container input[type="checkbox"] {
+    margin-right: 8px; /* Increased margin slightly */
+    margin-bottom: 0; /* Remove bottom margin if any from general input styling */
+    vertical-align: middle; /* Keep for fallback or non-flex scenarios */
+}
+
+#options-modal .modal-content div.checkbox-container label.inline-label {
+    color: white; 
+    font-weight: normal;
+    margin-left: 0; /* Remove margin-left as flex gap or checkbox margin will handle it */
+    vertical-align: middle; /* Keep for fallback */
+}
+
+
+/* General styling for form-box inline labels that might be reused */
+.form-box .checkbox-container {
+    display: flex;
+    align-items: center;
+    margin-bottom: 18px; /* Match other form element spacing */
+}
+
+.form-box .checkbox-container input[type="checkbox"] {
+    margin-right: 8px;
+    margin-bottom: 0;
+    vertical-align: middle; /* For good measure */
+}
+
+.form-box .checkbox-container .inline-label {
+    display: inline;
+    font-weight: normal;
+    vertical-align: middle; /* For good measure */
+    margin-bottom: 0;
+}
