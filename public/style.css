@@ -226,8 +226,13 @@ body {
     z-index: 4;
     display: flex;
     flex-direction: column; 
-    gap: 10px;
+    gap: 10px; 
 }
+
+#left-controls > .game-button { 
+    margin-bottom: 5px; 
+}
+
 
 #interaction-controls {
     display: flex;
@@ -248,33 +253,57 @@ body {
     background-color: rgba(0,0,0,0.8);
 }
 .game-select {
-    padding-right: 25px;
+    padding-right: 25px; 
+}
+
+.modal { 
+    display: none; 
+    position: fixed; 
+    z-index: 100; 
+    left: 0;
+    top: 0;
+    width: 100%; 
+    height: 100%; 
+    overflow: auto; 
+    background-color: rgba(0,0,0,0.6); 
+    /* Added for centering modal content */
+    display: none; /* Initially hidden */
+    justify-content: center; /* Horizontal centering */
+    align-items: center; /* Vertical centering */
+    text-align: center; /* For inline-block children if any */
 }
 
 .modal-content {
-    margin: 5% auto;
+    /* Removed margin: 5% auto; as .modal now handles centering */
     width: 90%;
-    max-width: 500px;
+    max-width: 500px; 
     position: relative;
     box-sizing: border-box;
+    display: inline-block; /* Allows text-align: center on parent to work */
+    text-align: left; /* Reset text-align for content inside */
 }
 
-#options-modal .modal-content {
-    text-align: center;
+/* Ensure form-box styles apply correctly inside modals */
+.modal .form-box {
+    width: 100%; 
+    margin: 0;
+    text-align: left; /* Ensure form content is left-aligned */
 }
 
 #options-modal .modal-content h2 {
+    text-align: center; /* Keep h2 centered */
     margin-bottom: 25px;
 }
 
 #options-modal .modal-content button {
     display: block;
-    width: calc(100% - 20px);
-    margin: 10px auto;
+    width: calc(100% - 20px); 
+    margin: 10px auto; 
     box-sizing: border-box;
     padding: 12px 10px; 
     font-size: 0.95em; 
 }
+
 
 .close-button {
     color: #ccc; 
@@ -312,7 +341,7 @@ body {
     margin-left: 5px;
     vertical-align: middle;
 }
-.form-box div > input[type="checkbox"] {
+.form-box div > input[type="checkbox"] { 
     margin-bottom: 18px;
     vertical-align: middle;
 }
@@ -321,11 +350,11 @@ body {
 #input-area {
     display: flex;
     margin-top: auto;
-    align-items: center;
+    align-items: center; 
 }
 
 .attach-button {
-    padding: 10px 12px;
+    padding: 10px 12px; 
     font-size: 1.2em;
     margin-right: 8px;
 }
@@ -357,8 +386,8 @@ body {
 
 
 #message-display .message-image-thumbnail {
-    display: block;
-    max-width: 150px;
+    display: block; 
+    max-width: 150px; 
     max-height: 150px;
     border-radius: 8px;
     margin-top: 8px;
@@ -366,19 +395,45 @@ body {
 }
 
 
-#options-modal .modal-content label.inline-label {
-    color: white;
-}
-#options-modal .modal-content input[type="checkbox"] {
-    margin-right: 5px;
-    vertical-align: middle;
-}
-#options-modal .modal-content div {
+#options-modal .modal-content div.checkbox-container {
+    display: flex;
+    align-items: center;
     margin-bottom: 15px;
-    text-align: left;
-    padding-left: 10px;
+    text-align: left; 
+    padding-left: 10px; 
 }
 
+#options-modal .modal-content div.checkbox-container input[type="checkbox"] {
+    margin-right: 8px;
+    margin-bottom: 0; 
+    vertical-align: middle;
+}
+
+#options-modal .modal-content div.checkbox-container label.inline-label {
+    color: white; 
+    font-weight: normal;
+    margin-left: 0; 
+    vertical-align: middle;
+}
+
+.form-box .checkbox-container {
+    display: flex;
+    align-items: center;
+    margin-bottom: 18px; 
+}
+
+.form-box .checkbox-container input[type="checkbox"] {
+    margin-right: 8px;
+    margin-bottom: 0; 
+    vertical-align: middle;
+}
+
+.form-box .checkbox-container .inline-label {
+    display: inline;
+    font-weight: normal;
+    vertical-align: middle;
+    margin-bottom: 0; 
+}
 
 #memoryViewerContent .message-image-thumbnail {
     display: block;
@@ -389,42 +444,30 @@ body {
     border: 1px solid rgba(255,255,255,0.2);
 }
 
-#options-modal .modal-content div.checkbox-container {
-    display: flex;
-    align-items: center;
-    margin-bottom: 15px;
-    text-align: left;
-    padding-left: 10px; 
+#background-selector-modal .modal-content h2 {
+    text-align: center; 
+    margin-bottom: 20px;
 }
-
-#options-modal .modal-content div.checkbox-container input[type="checkbox"] {
-    margin-right: 8px;
-    margin-bottom: 0;
-    vertical-align: middle;
-}
-
-#options-modal .modal-content div.checkbox-container label.inline-label {
+#background-selector-modal .modal-content label {
     color: white; 
-    font-weight: normal;
-    margin-left: 0;
-    vertical-align: middle;
+    margin-bottom: 8px;
+}
+#background-selector-modal .game-select,
+#background-selector-modal #backgroundSelectorInput { /* Target specifically for consistency */
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 20px;
+    background-color: rgba(0, 0, 0, 0.3); /* Darker background for select */
+    color: white; /* Text color for select */
+    border: 1px solid rgba(255, 255, 255, 0.5); 
+    border-radius: 5px;
+}
+#background-selector-modal #backgroundSelectorInput option {
+    background-color: rgba(50, 50, 50, 0.9); /* Background for options when dropdown is open */
+    color: white; /* Text color for options */
 }
 
-.form-box .checkbox-container {
-    display: flex;
-    align-items: center;
-    margin-bottom: 18px;
-}
-
-.form-box .checkbox-container input[type="checkbox"] {
-    margin-right: 8px;
-    margin-bottom: 0;
-    vertical-align: middle;
-}
-
-.form-box .checkbox-container .inline-label {
-    display: inline;
-    font-weight: normal;
-    vertical-align: middle;
-    margin-bottom: 0;
+#background-selector-modal .game-button { 
+    width: 100%;
+    margin-right: 0; 
 }

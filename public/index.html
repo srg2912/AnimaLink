@@ -10,7 +10,7 @@
     <div id="app-container">
 
         <!-- API Key Setup Screen -->
-        <div id="api-key-screen" class="screen form-box" style="display: none;"> {/* Added style="display: none;" */}
+        <div id="api-key-screen" class="screen form-box" style="display: none;">
             <h2>API Key Configuration</h2>
             <form id="apiKeyForm">
                 <label for="model">Model:</label>
@@ -30,7 +30,6 @@
 
         <!-- User Data Setup Screen -->
         <div id="user-data-screen" class="screen form-box" style="display: none;">
-            <!-- ... existing user data form ... -->
              <h2>Your Information</h2>
             <form id="userDataForm">
                 <label for="userName">Name*:</label>
@@ -54,7 +53,6 @@
 
         <!-- Character Personality Setup Screen -->
         <div id="character-setup-screen" class="screen form-box" style="display: none;">
-            <!-- ... existing character setup form ... -->
              <h2>Create Your Character</h2>
             <form id="characterCreateForm">
                 <label for="charName">Character Name*:</label>
@@ -91,12 +89,12 @@
             
             <div id="left-controls">
                 <button id="optionsButton" class="game-button">☰ Options</button>
+                <button id="changeBackgroundButton" class="game-button">Background</button>
                 <div id="interaction-controls">
                     <select id="actionSelector" class="game-select">
                         <option value="hug">Hug</option>
                         <option value="tickle">Tickle</option>
                         <option value="kiss">Kiss</option>
-                        <!-- Add more actions here later -->
                     </select>
                     <button id="performActionButton" class="game-button">Perform</button>
                 </div>
@@ -122,7 +120,7 @@
 
         <!-- Options Modal -->
         <div id="options-modal" class="modal" style="display: none;">
-            <div class="modal-content form-box"> <!-- Added form-box for styling consistency -->
+            <div class="modal-content form-box">
                 <span class="close-button" id="closeOptionsModal">×</span>
                 <h2>Options</h2>
                 <div class="checkbox-container">
@@ -146,6 +144,17 @@
                 <span class="close-button" id="closeMemoryViewerModal">×</span>
                 <h2 id="memoryViewerTitle">Memory</h2>
                 <div id="memoryViewerContent" class="scrollable-content"></div>
+            </div>
+        </div>
+
+        <!-- Background Selector Modal -->
+        <div id="background-selector-modal" class="modal" style="display: none;">
+            <div class="modal-content form-box">
+                <span class="close-button" id="closeBackgroundSelectorModal">×</span>
+                <h2>Change Background</h2>
+                <label for="backgroundSelectorInput" style="display: block; margin-bottom: 8px; font-weight: bold;">Select a background:</label>
+                <select id="backgroundSelectorInput" class="game-select" style="width: 100%; margin-bottom: 20px; padding: 10px;"></select>
+                <button id="applyBackgroundButton" class="game-button" style="width: 100%;">Apply Background</button>
             </div>
         </div>
 

@@ -1,4 +1,3 @@
-// Routers.mjs
 import { Router } from 'express';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -7,7 +6,7 @@ import { fileURLToPath } from 'url';
 import { updateTextFile, updateMemoryFile } from './Write_To.mjs';
 import { readTextFile, readMemoryFile } from './Read_File.mjs';
 import { generateInstructionPrompt,  generateSpritePrompt, generatePersonalityPrompt, generateDiaryPrompt } from './Generate_Prompt.mjs';
-import { readContents, pickValidSprite } from './get_images.mjs';
+import { readContents, pickValidSprite, listFilesInDirectory } from './get_images.mjs'; // Added listFilesInDirectory
 import { ask_LLM, isApiKeyEffectivelyConfigured, getVisionSupportStatus, reloadConfigAndReinitializeClient, forceReinitializeOpenAI } from './LLM_Request.mjs';
 
 const router = Router();
@@ -24,6 +23,7 @@ const GENERAL_MEMORY_PATH = path.join(PROJECT_ROOT, 'memory', 'general.json');
 const SHORT_TERM_MEMORY_PATH = path.join(PROJECT_ROOT, 'memory', 'short_term.json');
 const LONG_TERM_MEMORY_PATH = path.join(PROJECT_ROOT, 'memory', 'long_term.json');
 const ASSETS_SPRITES_BASE_PATH = path.join(PROJECT_ROOT, 'assets', 'sprites');
+const ASSETS_BACKGROUNDS_PATH = path.join(PROJECT_ROOT, 'assets', 'backgrounds'); // Added backgrounds path
 const BACKUPS_DIR_PATH = path.join(PROJECT_ROOT, 'backups');
 
 
@@ -228,6 +228,7 @@ router.post('/api/message', async (req, res) => {
   const { message, image_data } = req.body; // image_data is base64 string
   if (!message && !image_data) return res.status(400).json({ error: 'Message or image required.' });
   if (!message && image_data) {
+    // No specific action needed here, handled by llmPromptContent logic
   }
 
 
@@ -286,16 +287,16 @@ router.post('/api/message', async (req, res) => {
     previousMessages.push(userMessageEntry, assistantMessageEntry);
     await updateMemoryFile(SHORT_TERM_MEMORY_PATH, previousMessages);
 
-    // Diary and Backup logic (remains the same)
+    // Diary and Backup logic
     if (assistantMessageEntry.id % 20 === 0) {
       try {
         const diaryPrompt = generateDiaryPrompt(personality);
-        const contextWindow = previousMessages.slice(-20); // Use more context if possible/needed
+        const contextWindow = previousMessages.slice(-20); 
         const diaryEntryContent = await ask_LLM(diaryPrompt, '', contextWindow);
         const lastEntryId = previousEntries[previousEntries.length - 1]?.id ?? 0;
         previousEntries.push({
           id: lastEntryId + 1,
-          role: 'assistant', // Or 'system' or 'diary_entry' for clarity
+          role: 'assistant', 
           content: 'Diary entry: ' + diaryEntryContent,
           timestamp: new Date().toISOString()
         });
@@ -307,7 +308,7 @@ router.post('/api/message', async (req, res) => {
 
     if (assistantMessageEntry.id % 10 === 0) {
       try {
-        const generalData = JSON.parse(await readTextFile(GENERAL_MEMORY_PATH)); // Re-read general data
+        const generalData = JSON.parse(await readTextFile(GENERAL_MEMORY_PATH)); 
         const shortTermData = JSON.parse(await readTextFile(SHORT_TERM_MEMORY_PATH));
         const longTermData = JSON.parse(await readTextFile(LONG_TERM_MEMORY_PATH));
         const personalityData = await readTextFile(PERSONALITY_PATH);
@@ -328,20 +329,32 @@ router.post('/api/message', async (req, res) => {
 // POST Request to interact with the character, recicled logic of messaging
 router.post('/api/interact/:body_part', async (req, res) => {
   const bodyPart = req.params.body_part;
-  if (!bodyPart) return res.status(400).json({ error: 'Body part not specified.' })
+  const { backgroundName } = req.body; // For background_change
+
+  if (!bodyPart) return res.status(400).json({ error: 'Body part or interaction type not specified.' })
   
-  let interactionMessage = '' // Renamed from 'message' to avoid confusion
+  let interactionMessage = '';
+  let userInteractionLogMessage = `System: User interacted (${bodyPart}).`;
+
   if (bodyPart === 'hug') {
     interactionMessage = 'System Message: The user hugged your sprite.';
   } else if (bodyPart === 'tickle') {
     interactionMessage = 'System Message: The user tickled your sprite on the ribs.';
   } else if (bodyPart === 'kiss') {
     interactionMessage = 'System Message: The user kissed your sprite.';
+  } else if (bodyPart === 'background_change') {
+    if (!backgroundName) {
+        return res.status(400).json({ error: 'Background name not specified for background_change interaction.' });
+    }
+    // Remove extension and replace underscores for a cleaner message to LLM
+    const cleanBackgroundName = backgroundName.replace(/\.(png|jpe?g|gif|webp)$/i, '').replace(/_/g, ' ');
+    interactionMessage = `System: The user took you to ${cleanBackgroundName}.`;
+    userInteractionLogMessage = `System: User changed background to ${backgroundName}.`; // Log with original filename
   } else {
     interactionMessage = `System Message: The user stroke your ${bodyPart} by interacting with your sprite.`;
   };
 
-  if (!interactionMessage) return res.status(500).json({ error: 'couldn\' perform action.' })
+  if (!interactionMessage) return res.status(500).json({ error: 'Couldn\'t perform action or invalid interaction type.' })
 
   const personality =  await readTextFile(PERSONALITY_PATH);
   if (!personality) return res.status(400).json({ error: 'Personality required.' });
@@ -366,10 +379,10 @@ router.post('/api/interact/:body_part', async (req, res) => {
     const validSprite = await pickValidSprite(chosenSprite, path.join(ASSETS_SPRITES_BASE_PATH, general.sprite));
     const lastId = previousMessages[previousMessages.length - 1]?.id ?? 0;
     
-    const userMessageEntry = { // System interaction shown as user message for flow
+    const userMessageEntry = { 
       id: lastId + 1,
-      role: 'user',
-      content: `System: User interacted (${bodyPart}).`, // More descriptive
+      role: 'user', // Representing the user's action/system event
+      content: userInteractionLogMessage, 
       timestamp: new Date().toISOString()
     };
     const assistantMessageEntry = {
@@ -382,11 +395,11 @@ router.post('/api/interact/:body_part', async (req, res) => {
     previousMessages.push(userMessageEntry, assistantMessageEntry);
     await updateMemoryFile(SHORT_TERM_MEMORY_PATH, previousMessages);
 
-    // Diary and Backup logic (remains the same)
-     if (assistantMessageEntry.id % 30 === 0) {
+    // Diary and Backup logic
+     if (assistantMessageEntry.id % 20 === 0) { // Changed from 30 to 20 to match /api/message
       try {
         const diaryPrompt = generateDiaryPrompt(personality);
-        const contextWindow = previousMessages.slice(-8);
+        const contextWindow = previousMessages.slice(-20); // Consistent context window
         const diaryEntryContent = await ask_LLM(diaryPrompt, '', contextWindow);
         const lastEntryId = previousEntries[previousEntries.length - 1]?.id ?? 0;
         previousEntries.push({
@@ -429,7 +442,7 @@ router.delete('/api/memory', async (req, res) => {
     await updateMemoryFile(LONG_TERM_MEMORY_PATH, []);
     const jsonData = JSON.stringify({}, null, 2);
     await updateTextFile(jsonData, GENERAL_MEMORY_PATH, 'w');
-    return res.status(204).send(); // No content for 204
+    return res.status(204).send(); 
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Failed to delete all memories.' });
@@ -451,7 +464,7 @@ router.delete('/api/memory/:type', async (req, res) => {
     } else {
       return res.status(404).json({ error: 'Not a valid memory type.' });
     }
-    return res.status(204).send(); // No content for 204
+    return res.status(204).send(); 
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Failed to delete memory.' });
@@ -480,7 +493,7 @@ router.get('/api/backups/:name', async (req, res) => {
     res.status(200).json({ message: 'Memory restored successfully.' });
   } catch (error) {
     console.error(error);
-    if (error.code === 'ENOENT') { // File not found specifically
+    if (error.code === 'ENOENT') { 
         return res.status(404).json({ error: 'Backup file not found.' });
     }
     res.status(500).json({ error: 'Failed to get backup.' });
@@ -490,7 +503,7 @@ router.get('/api/backups/:name', async (req, res) => {
 // GET Request to get short term memory
 router.get('/api/memory/short_term', async (req, res) => {
   try {
-    const messages = await readMemoryFile(SHORT_TERM_MEMORY_PATH, -1); // -1 for all
+    const messages = await readMemoryFile(SHORT_TERM_MEMORY_PATH, -1); 
     res.status(200).json(messages);
   } catch (error) {
     console.error(error);
@@ -501,7 +514,7 @@ router.get('/api/memory/short_term', async (req, res) => {
 // GET Request to get long term memory
 router.get('/api/memory/long_term', async (req, res) => {
   try {
-    const entries = await readMemoryFile(LONG_TERM_MEMORY_PATH, -1); // -1 for all
+    const entries = await readMemoryFile(LONG_TERM_MEMORY_PATH, -1); 
     res.status(200).json(entries);
   } catch (error) {
     console.error(error);
@@ -559,6 +572,19 @@ router.get('/api/personality', async (req, res) => {
   }
 });
 
+// GET Request to get list of available backgrounds
+router.get('/api/backgrounds', (req, res) => {
+  try {
+    const allFiles = listFilesInDirectory(ASSETS_BACKGROUNDS_PATH);
+    // Filter for common image file extensions
+    const imageFiles = allFiles.filter(file => /\.(png|jpe?g|gif|webp)$/i.test(file));
+    res.status(200).json(imageFiles);
+  } catch (error) {
+    // listFilesInDirectory already logs its specific error
+    res.status(500).json({ error: 'Failed to retrieve background images list.' });
+  }
+});
+
 // POST Request to manually create a backup
 router.post('/api/backups/create', async (req, res) => {
     try {
@@ -583,12 +609,11 @@ router.post('/api/backups/create', async (req, res) => {
         };
         
         const backupFilePath = path.join(BACKUPS_DIR_PATH, `${generalData.name}_backup.json`);
-        await updateMemoryFile(backupFilePath, backupObject); // updateMemoryFile stringifies and writes
+        await updateMemoryFile(backupFilePath, backupObject); 
 
         res.status(201).json({ message: `Backup for ${generalData.name} created successfully.`, filePath: backupFilePath });
     } catch (error) {
         console.error('Error during manual backup creation: ', error);
-        // Check if it's a file reading error (e.g., memory file missing)
         if (error.code === 'ENOENT') {
             return res.status(500).json({ error: 'Failed to create backup: A required memory file is missing.' });
         }

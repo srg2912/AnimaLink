@@ -14,7 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
         characterCreate: document.getElementById('characterCreateForm'),
     };
     
-    const apiKeySupportsVisionCheckbox = document.getElementById('apiKeySupportsVision'); // In API Key form
+    const apiKeySupportsVisionCheckbox = document.getElementById('apiKeySupportsVision');
 
     const errorMessages = {
         apiKey: document.getElementById('apiKeyError'),
@@ -63,6 +63,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const closeMemoryViewerModalButton = document.getElementById('closeMemoryViewerModal');
     const memoryViewerTitle = document.getElementById('memoryViewerTitle');
     const memoryViewerContent = document.getElementById('memoryViewerContent');
+
+    // Background Selector Modal Elements
+    const changeBackgroundButton = document.getElementById('changeBackgroundButton');
+    const backgroundSelectorModal = document.getElementById('background-selector-modal');
+    const closeBackgroundSelectorModalButton = document.getElementById('closeBackgroundSelectorModal');
+    const backgroundSelectorInput = document.getElementById('backgroundSelectorInput');
+    const applyBackgroundButton = document.getElementById('applyBackgroundButton');
     
     // --- State Variables ---
     let currentSpriteFolder = '';
@@ -73,7 +80,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentCharacterPersonalityText = '';
     let visionSupportedByCurrentModel = false;
     let selectedImageBase64 = null;
-
+    const LAST_BACKGROUND_KEY = 'lastSelectedBackground'; // localStorage key
 
     // --- Helper Functions ---
     function showScreen(screenId) {
@@ -90,12 +97,24 @@ document.addEventListener('DOMContentLoaded', () => {
                  appContainer.style.padding = '20px'; 
                  appContainer.style.backgroundColor = 'transparent'; 
             }
-            // Toggle attach image button visibility based on screen and vision support
             toggleAttachButtonVisibility();
         } else {
             console.error("Screen not found:", screenId);
         }
     }
+
+    function showModal(modalElement) {
+        if (modalElement) {
+            modalElement.style.display = 'flex'; // Use flex for centering defined in CSS
+        }
+    }
+
+    function hideModal(modalElement) {
+        if (modalElement) {
+            modalElement.style.display = 'none';
+        }
+    }
+
 
     function toggleAttachButtonVisibility() {
         if (visionSupportedByCurrentModel && screens.game.style.display === 'block') {
@@ -111,7 +130,7 @@ document.addEventListener('DOMContentLoaded', () => {
             element.textContent = finalMessage;
         } else {
             console.error("Error display element not found. Message:", finalMessage);
-            alert(finalMessage); // Fallback alert
+            alert(finalMessage); 
         }
          if(message && element) element.style.display = 'block';
          else if (element) element.style.display = 'none';
@@ -130,17 +149,15 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if (errorElement) displayError(errorElement, '');
 
-            if (response.status === 204) { // No Content
+            if (response.status === 204) { 
                 return { success: true, status: response.status };
             }
 
             if (isInitialCheck && response.status === 404) {
-                // Try to parse JSON, but if it fails, return a simple notFound indicator
                 const responseDataOnError = await response.json().catch(() => ({ notFound: true, status: 404 }));
                 return responseDataOnError; 
             }
 
-            // Try to parse JSON for all other cases
             const responseData = await response.json().catch(async (e) => {
                 const text = await response.text().catch(() => "Could not read response text.");
                 console.error("Failed to parse JSON response. Status:", response.status, "Response text:", text, "Error:", e);
@@ -154,7 +171,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return responseData;
             }
 
-            if (!response.ok) { // Fixed typo: removed 'ks'
+            if (!response.ok) {
                 if (!isInitialCheck || (responseData && responseData.error && response.status !== 404)) {
                     displayError(errorElement, responseData?.error || `Request failed: ${response.status} ${response.statusText}`);
                 }
@@ -193,8 +210,8 @@ document.addEventListener('DOMContentLoaded', () => {
     async function changeSprite(spriteName) {
         if (!currentSpriteFolder || !spriteName) {
             console.warn("Attempted to change sprite without folder or name:", currentSpriteFolder, spriteName);
-            if (currentSpriteFolder && !spriteName) spriteName = 'normal.png'; // Fallback if name is missing but folder exists
-            else if (!currentSpriteFolder) { // If no folder at all, cannot load any sprite
+            if (currentSpriteFolder && !spriteName) spriteName = 'normal.png';
+            else if (!currentSpriteFolder) { 
                 characterSprite.style.opacity = 0;
                 console.error("No sprite folder set for character.");
                 return;
@@ -203,7 +220,6 @@ document.addEventListener('DOMContentLoaded', () => {
         
         characterSprite.style.opacity = 0;
 
-        // Wait for opacity transition before changing src
         setTimeout(() => {
             const newSrc = `/assets/sprites/${currentSpriteFolder}/${spriteName}`;
             characterSprite.src = newSrc;
@@ -213,8 +229,8 @@ document.addEventListener('DOMContentLoaded', () => {
             characterSprite.onerror = () => {
                 console.error(`Failed to load sprite: ${newSrc}. Trying normal.png.`);
                 characterSprite.src = `/assets/sprites/${currentSpriteFolder}/normal.png`; 
-                characterSprite.onload = () => characterSprite.style.opacity = 1; // Show fallback
-                characterSprite.onerror = () => { // If even normal.png fails in that folder
+                characterSprite.onload = () => characterSprite.style.opacity = 1; 
+                characterSprite.onerror = () => { 
                     console.error(`Failed to load fallback normal.png in ${currentSpriteFolder}. Hiding sprite.`);
                     characterSprite.style.opacity = 0;
                 };
@@ -222,8 +238,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 300);
     }
     
-    // REMOVED FIRST (DUPLICATE) initializeApp function that was here
-
     function prefillUserDataForm() {
          if (currentUserData && Object.keys(currentUserData).length > 0) {
             forms.userData.name.value = currentUserData.name || '';
@@ -248,7 +262,10 @@ document.addEventListener('DOMContentLoaded', () => {
             showScreen('characterSetup'); 
             return;
         }
-        backgroundImage.src = '/assets/backgrounds/living_room.png';
+        
+        // Load last selected background or default
+        const lastBg = localStorage.getItem(LAST_BACKGROUND_KEY);
+        backgroundImage.src = lastBg ? `/assets/backgrounds/${lastBg}` : '/assets/backgrounds/living_room.png';
         
         messageDisplay.innerHTML = '';
         if (loadingExisting) {
@@ -267,23 +284,22 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 changeSprite('normal.png');
                  if (shortTermMemory && shortTermMemory.error) {
+                     // Error already handled
                 } else if (!Array.isArray(shortTermMemory)) {
                     displayError(errorMessages.gameScreen, "Failed to load chat history: Invalid response from server.");
                 }
             }
         } else {
-            changeSprite('normal.png'); // Default sprite for new game
+            changeSprite('normal.png'); 
         }
         showScreen('game');
     }
 
-    // This is the primary initializeApp function (the second one from your original file, kept for its logic)
     async function initializeApp() {
         const apiKeyStatusResponse = await apiRequest('/api/status/api_key', 'GET', null, null, true);
 
         if (!apiKeyStatusResponse || apiKeyStatusResponse.networkError) {
             showScreen('apiKey');
-            // Optionally display a more specific error if apiKeyStatusResponse.message exists
              if (apiKeyStatusResponse && apiKeyStatusResponse.message) {
                  displayError(errorMessages.apiKey, `Network error checking API status: ${apiKeyStatusResponse.message}`);
             } else {
@@ -292,36 +308,31 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         
-        // Update vision support state on the client
         visionSupportedByCurrentModel = apiKeyStatusResponse.supports_vision || false;
         supportsVisionCheckbox.checked = visionSupportedByCurrentModel;
         apiKeySupportsVisionCheckbox.checked = visionSupportedByCurrentModel;
 
-        // If not configured, show API key screen
         if (!apiKeyStatusResponse.configured) {
             showScreen('apiKey');
-            if (apiKeyStatusResponse.message) { // Show "not configured" message from server if available
+            if (apiKeyStatusResponse.message) { 
                 displayError(errorMessages.apiKey, apiKeyStatusResponse.message);
             }
             return;
         }
 
-        // API Key is configured, proceed to check User Data
         const userDataResponse = await apiRequest('/api/user_data', 'GET', null, null, true); 
         
         if (userDataResponse && userDataResponse.name && !userDataResponse.error && !userDataResponse.notFound) {
             currentUserData = userDataResponse;
 
-            // User Data exists, check Character Profile
             const charProfileResponse = await apiRequest('/api/personality', 'GET', null, null, true);
             if (charProfileResponse && charProfileResponse.profile && charProfileResponse.general?.sprite && !charProfileResponse.error && !charProfileResponse.notFound) {
                 currentCharacterPersonalityText = charProfileResponse.profile;
                 currentCharacterSetupData = charProfileResponse.general; 
                 currentSpriteFolder = charProfileResponse.general.sprite;
                 
-                // Pre-fill character create form for editing context
                 generatedPersonalityTextarea.value = currentCharacterPersonalityText;
-                if (forms.characterCreate && forms.characterCreate.name) { // Check if form elements exist
+                if (forms.characterCreate && forms.characterCreate.name) { 
                     forms.characterCreate.name.value = currentCharacterSetupData.name || '';
                     forms.characterCreate.looks.value = currentCharacterSetupData.looks || '';
                     forms.characterCreate.personality.value = currentCharacterSetupData.rawPersonalityInput || ''; 
@@ -338,7 +349,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         } else {
-            prefillUserDataForm(); // prepare form even if going to userData screen
+            prefillUserDataForm(); 
             showScreen('userData');
             if (userDataResponse && userDataResponse.error && !userDataResponse.notFound) {
                 displayError(errorMessages.userData, `Error fetching user data: ${userDataResponse.error}`);
@@ -349,68 +360,53 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Event Listeners ---
 
-    // API Key Form
     forms.apiKey.addEventListener('submit', async (e) => {
         e.preventDefault();
         const formData = new FormData(forms.apiKey);
         const data = Object.fromEntries(formData.entries());
-        data.supports_vision = apiKeySupportsVisionCheckbox.checked; // Get from the form's checkbox
+        data.supports_vision = apiKeySupportsVisionCheckbox.checked;
 
         const result = await apiRequest('/api/api_key', 'POST', data, errorMessages.apiKey); 
         if (result && result.model && !result.error) { 
             visionSupportedByCurrentModel = result.supports_vision || false;
-            supportsVisionCheckbox.checked = visionSupportedByCurrentModel; // Sync options modal checkbox
-            
-            // Re-evaluate flow: Directly call initializeApp to simplify logic and avoid redundancy
+            supportsVisionCheckbox.checked = visionSupportedByCurrentModel;
             await initializeApp();
         }
     });
 
-    // User Data Form
     forms.userData.addEventListener('submit', async (e) => {
          e.preventDefault();
         const formData = new FormData(forms.userData);
         let data = Object.fromEntries(formData.entries());
 
-        // Ensure required fields are not empty before sending (frontend validation)
         if (!data.name?.trim() || !data.gender?.trim() || !data.pronouns?.trim()) {
             displayError(errorMessages.userData, "Name, Gender, and Pronouns are required.");
             return;
         }
 
-        let result;
         let method = isUserDataEditing ? 'PATCH' : 'POST';
-        result = await apiRequest('/api/user_data', method, data, errorMessages.userData);
+        const result = await apiRequest('/api/user_data', method, data, errorMessages.userData);
         
-
-        // Check for success (200 for PATCH, 201 for POST, or has 'name' property and no error)
         if (result && (result.name || result.status === 201 || result.status === 200) && !result.error) {
-            currentUserData = result.name ? result : { ...currentUserData, ...data }; // Update local state
+            currentUserData = result.name ? result : { ...currentUserData, ...data };
 
             if (isUserDataEditing) {
                 alert('User data updated successfully!');
-                optionsModal.style.display = 'none'; 
+                hideModal(optionsModal);
                 isUserDataEditing = false;
                 userDataSubmitButton.textContent = 'Save User Data';
-                await initializeApp(); // Re-initialize to ensure consistency
-            } else {
-                // After initial user data setup, proceed to character setup or game
-                await initializeApp();
             }
-        } else if (result && result.error) {
-            // Error already displayed by apiRequest
+            await initializeApp(); 
         } else if (!result) {
             displayError(errorMessages.userData, "Failed to save user data. Unknown error.");
         }
     });
 
-    // Character Create Form
     forms.characterCreate.addEventListener('submit', async (e) => {
          e.preventDefault();
         const formData = new FormData(forms.characterCreate);
         const data = Object.fromEntries(formData.entries());
         
-        // Basic frontend validation
         if (!data.name?.trim() || !data.looks?.trim() || !data.personality?.trim() || !data.language?.trim() || !data.sprite?.trim()) {
             displayError(errorMessages.characterCreate, "All fields with * are required.");
             return;
@@ -419,23 +415,19 @@ document.addEventListener('DOMContentLoaded', () => {
         const result = await apiRequest('/api/personality', 'POST', data, errorMessages.characterCreate);
         if (result && result.characterProfile && !result.error) {
             currentCharacterPersonalityText = result.characterProfile;
-            // Fetch general info again to get all stored data including rawPersonalityInput
             const generalInfoResponse = await apiRequest('/api/personality', 'GET', null, errorMessages.characterCreate);
             if (generalInfoResponse && generalInfoResponse.general) {
                 currentCharacterSetupData = generalInfoResponse.general;
                 currentSpriteFolder = generalInfoResponse.general.sprite; 
             } else {
-                 // Fallback if fetching updated general info fails, use submitted data
-                 currentCharacterSetupData = { ...data, rawPersonalityInput: data.personality }; // Store raw input
+                 currentCharacterSetupData = { ...data, rawPersonalityInput: data.personality };
                  currentSpriteFolder = data.sprite; 
             }
-
             generatedPersonalityTextarea.value = result.characterProfile;
             characterEditSection.style.display = 'block';
         }
     });
 
-    // Save Edited Personality
     saveEditedPersonalityButton.addEventListener('click', async () => {
         const editedProfile = generatedPersonalityTextarea.value;
         if (!editedProfile.trim()) {
@@ -447,29 +439,22 @@ document.addEventListener('DOMContentLoaded', () => {
             currentCharacterPersonalityText = result.characterProfile;
             alert('Character profile updated!');
             if (isCharacterProfileEditing) { 
-                optionsModal.style.display = 'none';
+                hideModal(optionsModal);
                 isCharacterProfileEditing = false;
-                characterEditSection.style.display = 'none'; 
-                forms.characterCreate.style.display = 'block'; // Show the form again
-                continueToGameButtonElement.style.display = 'inline-block'; // Show continue button
-                // It's better to re-initialize to ensure all states are correct
-                await initializeApp();
+                await initializeApp(); 
             } else {
-                 // If not editing via options, just stay on character setup with edit section visible
-                 characterEditSection.style.display = 'block';
+                 characterEditSection.style.display = 'block'; 
             }
         }
     });
     
     continueToGameButtonElement.addEventListener('click', async () => {
-        // Ensure currentCharacterSetupData and currentSpriteFolder are up-to-date from the form if needed
-        if (!currentCharacterSetupData.name) { // If general data isn't fully populated yet
+        if (!currentCharacterSetupData.name) { 
             const formData = new FormData(forms.characterCreate);
             currentCharacterSetupData.name = formData.get('name');
             currentCharacterSetupData.looks = formData.get('looks');
             currentCharacterSetupData.language = formData.get('language');
             currentCharacterSetupData.sprite = formData.get('sprite');
-            // rawPersonalityInput should be set when character is created or fetched
         }
         if (!currentSpriteFolder && forms.characterCreate.sprite.value) {
             currentSpriteFolder = forms.characterCreate.sprite.value;
@@ -480,7 +465,7 @@ document.addEventListener('DOMContentLoaded', () => {
             displayError(errorMessages.characterEdit, "Sprite folder is missing. Please fill the 'Sprite Folder To Use' field and generate/save the profile. Cannot continue.");
             return;
         }
-        await goToGameScreen(false); // Not loading existing from memory, it's a new setup or continuation from setup
+        await goToGameScreen(false); 
     });
 
     async function handleInteractionResponse(result) {
@@ -498,13 +483,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Send Message
     sendMessageButton.addEventListener('click', async () => {
         const messageText = userMessageInput.value.trim();
         if (!messageText && !selectedImageBase64) return;
 
-        // Add user message to display (with potential image)
-        addMessageToDisplay('user', messageText || "[Image]", selectedImageBase64); // Display "[Image]" if no text
+        addMessageToDisplay('user', messageText || "[Image]", selectedImageBase64); 
         
         const payload = { message: messageText };
         if (selectedImageBase64) {
@@ -512,7 +495,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         userMessageInput.value = '';
-        removeImagePreview(); // Clear preview and selectedImageBase64
+        removeImagePreview(); 
         sendMessageButton.disabled = true;
         attachImageButton.disabled = true;
 
@@ -523,26 +506,22 @@ document.addEventListener('DOMContentLoaded', () => {
         handleInteractionResponse(result);
     });
     userMessageInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) { // Allow shift+enter for new lines if textarea
-            e.preventDefault(); // Prevent default newline in input if it's not a textarea
+        if (e.key === 'Enter' && !e.shiftKey) { 
+            e.preventDefault(); 
             sendMessageButton.click();
         }
     });
 
-    // Perform Action Button
     performActionButton.addEventListener('click', async () => {
         const selectedAction = actionSelector.value;
         if (!selectedAction) return;
 
         performActionButton.disabled = true;
-
         const result = await apiRequest(`/api/interact/${selectedAction}`, 'POST', {}, errorMessages.gameScreen);
-        
         performActionButton.disabled = false;
         handleInteractionResponse(result);
     });
 
-    // Image Attachment Logic
     attachImageButton.addEventListener('click', () => {
         imageUploadInput.click();
     });
@@ -550,15 +529,13 @@ document.addEventListener('DOMContentLoaded', () => {
     imageUploadInput.addEventListener('change', (event) => {
         const file = event.target.files[0];
         if (file) {
-            // Simple validation for image types (more robust on backend if needed)
             if (!['image/png', 'image/jpeg', 'image/gif', 'image/webp'].includes(file.type)) {
                 alert('Invalid file type. Please select a PNG, JPG, GIF, or WEBP image.');
-                imageUploadInput.value = ''; // Reset file input
+                imageUploadInput.value = ''; 
                 return;
             }
-            // Optional: File size check (e.g., < 5MB)
-            if (file.size > 7 * 1024 * 1024) { // 7 MB to match backend
-                 alert('File is too large. Please select an image under 7MB.'); // Adjusted to 7MB
+            if (file.size > 7 * 1024 * 1024) { 
+                 alert('File is too large. Please select an image under 7MB.');
                  imageUploadInput.value = '';
                  return;
             }
@@ -585,22 +562,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Options Modal Logic ---
     optionsButton.addEventListener('click', () => {
-        supportsVisionCheckbox.checked = visionSupportedByCurrentModel; // Sync before showing
-        optionsModal.style.display = 'block';
+        supportsVisionCheckbox.checked = visionSupportedByCurrentModel; 
+        showModal(optionsModal);
     });
-    closeOptionsModalButton.addEventListener('click', () => optionsModal.style.display = 'none');
+    closeOptionsModalButton.addEventListener('click', () => hideModal(optionsModal));
     
     supportsVisionCheckbox.addEventListener('change', async (event) => {
         const newVisionSupportStatus = event.target.checked;
-        const result = await apiRequest('/api/config/vision', 'PATCH', { supports_vision: newVisionSupportStatus }, errorMessages.gameScreen); // Use gameScreen error for feedback
+        const result = await apiRequest('/api/config/vision', 'PATCH', { supports_vision: newVisionSupportStatus }, errorMessages.gameScreen);
         
         if (result && result.supports_vision !== undefined && !result.error) {
             visionSupportedByCurrentModel = result.supports_vision;
-            apiKeySupportsVisionCheckbox.checked = visionSupportedByCurrentModel; // Sync API key form checkbox
+            apiKeySupportsVisionCheckbox.checked = visionSupportedByCurrentModel; 
             toggleAttachButtonVisibility();
             alert(`Vision support ${visionSupportedByCurrentModel ? 'enabled' : 'disabled'}.`);
         } else {
-            // Revert checkbox if update failed
             supportsVisionCheckbox.checked = visionSupportedByCurrentModel; 
             alert('Failed to update vision support setting.');
         }
@@ -608,24 +584,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function closeModalOnClickOutside(event) {
         if (event.target === optionsModal) {
-            optionsModal.style.display = 'none';
+            hideModal(optionsModal);
         }
         if (event.target === memoryViewerModal) {
-            memoryViewerModal.style.display = 'none';
+            hideModal(memoryViewerModal);
+        }
+        if (event.target === backgroundSelectorModal) { 
+            hideModal(backgroundSelectorModal);
         }
     }
     window.addEventListener('click', closeModalOnClickOutside);
 
 
     optChangeApiKey.addEventListener('click', () => {
-        optionsModal.style.display = 'none';
+        hideModal(optionsModal);
         showScreen('apiKey');
         forms.apiKey.reset(); 
-        apiKeySupportsVisionCheckbox.checked = visionSupportedByCurrentModel; // Pre-fill based on current state
+        apiKeySupportsVisionCheckbox.checked = visionSupportedByCurrentModel; 
     });
 
     optChangeUserData.addEventListener('click', () => {
-        optionsModal.style.display = 'none';
+        hideModal(optionsModal);
         isUserDataEditing = true;
         userDataSubmitButton.textContent = 'Update User Data';
         prefillUserDataForm(); 
@@ -633,11 +612,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     
     optChangeCharProfile.addEventListener('click', () => {
-        optionsModal.style.display = 'none';
+        hideModal(optionsModal);
         isCharacterProfileEditing = true;
         
-        // Pre-fill the create form with existing setup data
-        // This assumes currentCharacterSetupData and currentCharacterPersonalityText are populated from initializeApp
         if (currentCharacterSetupData) {
             forms.characterCreate.name.value = currentCharacterSetupData.name || '';
             forms.characterCreate.looks.value = currentCharacterSetupData.looks || '';
@@ -647,9 +624,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         generatedPersonalityTextarea.value = currentCharacterPersonalityText || '';
         
-        forms.characterCreate.style.display = 'none'; // Hide the create form part initially
-        characterEditSection.style.display = 'block'; // Show only edit section
-        continueToGameButtonElement.style.display = 'none'; // Hide continue button in this mode
+        forms.characterCreate.style.display = 'none'; 
+        characterEditSection.style.display = 'block'; 
+        continueToGameButtonElement.style.display = 'none';
 
         showScreen('characterSetup');
     });
@@ -658,7 +635,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const endpoint = type === 'shortTerm' ? '/api/memory/short_term' : '/api/memory/long_term';
         const title = type === 'shortTerm' ? 'Chat History (Short-Term Memory)' : "Character's Diary (Long-Term Memory)";
         
-        const data = await apiRequest(endpoint, 'GET', null, null); // Error display in modal for simplicity
+        const data = await apiRequest(endpoint, 'GET', null, null); 
         
         memoryViewerTitle.textContent = title;
         memoryViewerContent.innerHTML = ''; 
@@ -681,15 +658,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (entry.sprite) contentHTML += `(Sprite: ${entry.sprite})<br>`;
                     
                     const contentTextNode = document.createTextNode(entry.content);
-                    li.innerHTML = contentHTML; // Set HTML part first
-                    li.appendChild(contentTextNode); // Then append text node
+                    li.innerHTML = contentHTML; 
+                    li.appendChild(contentTextNode); 
 
-                    if (entry.image_data && type === 'shortTerm') { // Show image for short term (user messages)
+                    if (entry.image_data && type === 'shortTerm') { 
                         const img = document.createElement('img');
                         img.src = entry.image_data;
                         img.alt = "User's image";
-                        img.classList.add('message-image-thumbnail'); // Reuse class
-                        img.style.maxWidth = '150px'; // Larger preview in modal
+                        img.classList.add('message-image-thumbnail'); 
+                        img.style.maxWidth = '150px'; 
                         img.style.marginTop = '5px';
                         li.appendChild(img);
                     }
@@ -700,25 +677,24 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             memoryViewerContent.textContent = `Failed to load ${type === 'shortTerm' ? 'chat history' : 'diary'}. ${data?.error || data?.message || 'Unknown error.'}`;
         }
-        memoryViewerModal.style.display = 'block';
+        showModal(memoryViewerModal);
     }
 
     optViewShortTermMemory.addEventListener('click', () => {
-        optionsModal.style.display = 'none';
+        hideModal(optionsModal);
         showMemory('shortTerm');
     });
     
     optViewLongTermMemory.addEventListener('click', () => {
-        optionsModal.style.display = 'none';
+        hideModal(optionsModal);
         showMemory('longTerm');
     });
 
-    closeMemoryViewerModalButton.addEventListener('click', () => memoryViewerModal.style.display = 'none');
+    closeMemoryViewerModalButton.addEventListener('click', () => hideModal(memoryViewerModal));
 
-    // Create Backup Button
     optCreateBackupButton.addEventListener('click', async () => {
-        optionsModal.style.display = 'none';
-        const result = await apiRequest('/api/backups/create', 'POST', {}, errorMessages.gameScreen); // Use gameScreen error for feedback
+        hideModal(optionsModal);
+        const result = await apiRequest('/api/backups/create', 'POST', {}, errorMessages.gameScreen); 
         if (result && result.message && !result.error) {
             alert(result.message);
         } else {
@@ -726,14 +702,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Restore Character Button
     optRestoreCharacterButton.addEventListener('click', async () => {
-        optionsModal.style.display = 'none';
+        hideModal(optionsModal);
         const confirmRestore = confirm("Restoring a backup will overwrite the current character's data and chat history. Please make a backup of the current character first if needed. Continue?");
         if (!confirmRestore) return;
 
         const characterName = prompt("Enter the exact name of the character whose backup you want to restore:");
-        if (characterName === null) return; // User pressed Cancel
+        if (characterName === null) return; 
         if (!characterName.trim()) {
             alert("Character name cannot be empty.");
             return;
@@ -742,25 +717,22 @@ document.addEventListener('DOMContentLoaded', () => {
         const result = await apiRequest(`/api/backups/${characterName.trim()}`, 'GET', null, errorMessages.gameScreen);
         if (result && result.message && !result.error) {
             alert(result.message);
-            // Reload application state to reflect restored data
-            await initializeApp(); // Changed from refreshAppAndCharacterData
+            await initializeApp(); 
         } else {
             alert(`Failed to restore backup for "${characterName.trim()}": ${result?.error || 'Backup not found or error occurred.'}`);
         }
     });
 
-    // Create New Character Button
     optCreateNewCharacterButton.addEventListener('click', async () => {
-        optionsModal.style.display = 'none';
+        hideModal(optionsModal);
         const confirmCreateNew = confirm("This will delete the current character's profile, memories, and chat history. Make a backup first if you want to save the current character. Continue to create a new character?");
         if (!confirmCreateNew) return;
 
         const result = await apiRequest('/api/memory', 'DELETE', null, errorMessages.gameScreen);
-        if (result && result.success && !result.error) { // DELETE /api/memory returns 204 on success
+        if (result && result.success && !result.error) { 
             alert('Current character data deleted. You will now be taken to the character creation screen.');
-            // Clear local state related to the old character immediately
-            currentUserData = {}; // Also clear user data if a full reset implies starting over user setup too. Or decide if user data persists.
-                                // For now, assume user data might persist, but character specific data is wiped.
+            localStorage.removeItem(LAST_BACKGROUND_KEY); // Clear last background on new character
+            currentUserData = {}; 
             currentCharacterPersonalityText = '';
             currentCharacterSetupData = {};
             currentSpriteFolder = '';
@@ -770,13 +742,73 @@ document.addEventListener('DOMContentLoaded', () => {
             characterEditSection.style.display = 'none';
             forms.characterCreate.style.display = 'block';
             continueToGameButtonElement.style.display = 'inline-block';
-
-            // After deleting memory, re-initialize. initializeApp will guide to the correct screen (likely characterSetup).
             await initializeApp(); 
         } else {
             alert(`Failed to delete current character data: ${result?.error || 'Unknown error'}`);
         }
     });
+
+    // --- Background Change Logic ---
+    changeBackgroundButton.addEventListener('click', async () => {
+        try {
+            displayError(errorMessages.gameScreen, ''); 
+            const backgrounds = await apiRequest('/api/backgrounds', 'GET', null, errorMessages.gameScreen); 
+            if (backgrounds && Array.isArray(backgrounds)) {
+                backgroundSelectorInput.innerHTML = ''; 
+                if (backgrounds.length === 0) {
+                    const option = document.createElement('option');
+                    option.textContent = 'No backgrounds found in assets/backgrounds';
+                    option.disabled = true;
+                    backgroundSelectorInput.appendChild(option);
+                    applyBackgroundButton.disabled = true;
+                } else {
+                    const lastBg = localStorage.getItem(LAST_BACKGROUND_KEY);
+                    backgrounds.forEach(bgFile => {
+                        const option = document.createElement('option');
+                        option.value = bgFile;
+                        option.textContent = bgFile.replace(/\.(png|jpe?g|gif|webp)$/i, '').replace(/_/g, ' ');
+                        if (bgFile === lastBg) {
+                            option.selected = true; // Pre-select the current/last used background
+                        }
+                        backgroundSelectorInput.appendChild(option);
+                    });
+                    applyBackgroundButton.disabled = false;
+                }
+                showModal(backgroundSelectorModal);
+            } else {
+                if (!errorMessages.gameScreen.textContent) { 
+                     displayError(errorMessages.gameScreen, backgrounds?.error || 'Failed to load backgrounds list.');
+                }
+            }
+        } catch (error) { 
+            displayError(errorMessages.gameScreen, 'Error trying to fetch backgrounds: ' + error.message);
+        }
+    });
+
+    applyBackgroundButton.addEventListener('click', async () => {
+        const selectedBackgroundFile = backgroundSelectorInput.value;
+        if (!selectedBackgroundFile) {
+            alert('Please select a background from the list.');
+            return;
+        }
+
+        backgroundImage.src = `/assets/backgrounds/${selectedBackgroundFile}`;
+        localStorage.setItem(LAST_BACKGROUND_KEY, selectedBackgroundFile); // Save to localStorage
+        hideModal(backgroundSelectorModal);
+        applyBackgroundButton.disabled = true; 
+
+        const payload = { backgroundName: selectedBackgroundFile };
+        const result = await apiRequest(`/api/interact/background_change`, 'POST', payload, errorMessages.gameScreen);
+        
+        applyBackgroundButton.disabled = false; 
+
+        handleInteractionResponse(result); 
+    });
+
+    closeBackgroundSelectorModalButton.addEventListener('click', () => {
+        hideModal(backgroundSelectorModal);
+    });
+
 
     // --- Initial Setup ---
     initializeApp();

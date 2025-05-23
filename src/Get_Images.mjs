@@ -33,4 +33,15 @@ const pickValidSprite = async (rawResponse, path) => {
     }
 };
 
-export { readContents, pickValidSprite };
+// New function to list files in a directory, returning an array
+function listFilesInDirectory(directoryPath) {
+    try {
+        const files = fs.readdirSync(directoryPath);
+        return files || []; // Ensure an array is returned
+    } catch (error) {
+        console.error(`Error reading directory ${directoryPath}:`, error.message);
+        return []; // Return empty array on error
+    }
+}
+
+export { readContents, pickValidSprite, listFilesInDirectory };
