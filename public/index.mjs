@@ -577,7 +577,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
             // Optional: File size check (e.g., < 5MB)
-            if (file.size > 5 * 1024 * 1024) { // 5 MB
+            if (file.size > 7 * 1024 * 1024) { // 5 MB
                  alert('File is too large. Please select an image under 5MB.');
                  imageUploadInput.value = '';
                  return;
