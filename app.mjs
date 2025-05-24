@@ -20,4 +20,8 @@ app.use('/assets', express.static('assets'));
 // Server start
 app.listen(PORT, () => {
     console.log(`Running on Port: ${PORT}`);
+    // If run as a child process by Electron's main.js, send a message
+    if (typeof process.send === 'function') {
+        process.send('server-started');
+    }
 });

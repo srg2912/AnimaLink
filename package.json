@@ -1,22 +1,62 @@
 {
-  "name": "ai-pal",
+  "name": "animalink",
   "version": "1.0.0",
-  "main": "app.mjs",
+  "main": "main.mjs",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start:dev": "nodemon app.mjs",
-    "start": "node app.mjs"
+    "start": "node app.mjs",
+    "electron:start": "electron .",
+    "electron:dev": "NODE_ENV=development electron .",
+    "dist": "electron-builder"
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "CC BY-NC 4.0",
   "description": "",
   "dependencies": {
+    "electron-builder": "^26.0.12",
     "express": "^5.1.0",
     "openai": "^4.98.0"
   },
   "devDependencies": {
+    "electron": "^36.3.1",
     "nodemon": "^3.1.10"
   },
-  "type": "module"
+  "type": "module",
+  "build": {
+    "appId": "com.animalink.app",
+    "productName": "AnimaLink",
+    "directories": {
+      "output": "dist_electron"
+    },
+    "files": [
+      "main.js",
+      "app.mjs",
+      "public/**/*",
+      "assets/**/*",
+      "src/**/*",
+      "memory/**/*",
+      "config/**/*",
+      "node_modules/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.games",
+      "icon": "assets/icons/icon.icns"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icons/icon.ico"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "assets/icons/icon.png",
+      "category": "Game"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
 }
