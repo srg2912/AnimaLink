@@ -91,12 +91,16 @@
             <div id="left-controls">
                 <button id="optionsButton" class="game-button">☰ Options</button>
                 <button id="changeBackgroundButton" class="game-button">Background</button>
-                <button id="musicSettingsButton" class="game-button">Music</button> <!-- New Music Button -->
+                <button id="musicSettingsButton" class="game-button">Music</button> 
                 <div id="interaction-controls">
                     <select id="actionSelector" class="game-select">
                         <option value="hug">Hug</option>
                         <option value="tickle">Tickle</option>
                         <option value="kiss">Kiss</option>
+                        <option value="pet_head">Pet head</option>
+                        <option value="hold_hand">Hold hand</option>
+                        <option value="high_five">High five</option>
+                        <option value="give_massage">Give massage</option>
                     </select>
                     <button id="performActionButton" class="game-button">Perform</button>
                 </div>
@@ -171,7 +175,7 @@
                 
                 <label for="musicVolumeSlider" style="display: block; margin-bottom: 8px; font-weight: bold;">Volume:</label>
                 <input type="range" id="musicVolumeSlider" min="0" max="1" step="0.01" value="0.5" style="width: 100%; margin-bottom: 20px;">
-            
+                
             </div>
         </div>
 

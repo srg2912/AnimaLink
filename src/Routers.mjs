@@ -25,7 +25,7 @@ const SHORT_TERM_MEMORY_PATH = path.join(PROJECT_ROOT, 'memory', 'short_term.jso
 const LONG_TERM_MEMORY_PATH = path.join(PROJECT_ROOT, 'memory', 'long_term.json');
 const ASSETS_SPRITES_BASE_PATH = path.join(PROJECT_ROOT, 'assets', 'sprites');
 const ASSETS_BACKGROUNDS_PATH = path.join(PROJECT_ROOT, 'assets', 'backgrounds'); 
-const ASSETS_MUSIC_PATH = path.join(PROJECT_ROOT, 'assets', 'bg_music');
+const ASSETS_MUSIC_PATH = path.join(PROJECT_ROOT, 'assets', 'bg_music'); 
 const BACKUPS_DIR_PATH = path.join(PROJECT_ROOT, 'backups');
 
 
@@ -331,7 +331,9 @@ router.post('/api/interact/:interaction_type', async (req, res) => {
   if (!interactionType) return res.status(400).json({ error: 'Interaction type not specified.' })
   
   let interactionMessage = '';
-  let userInteractionLogMessage = `System: User interacted (${interactionType}).`;
+  // Default log message, can be overridden by specific interactions
+  let userInteractionLogMessage = `System: User interacted by '${interactionType.replace(/_/g, ' ')}'.`;
+
 
   if (interactionType === 'hug') {
     interactionMessage = 'System Message: The user hugged your sprite.';
@@ -339,6 +341,18 @@ router.post('/api/interact/:interaction_type', async (req, res) => {
     interactionMessage = 'System Message: The user tickled your sprite on the ribs.';
   } else if (interactionType === 'kiss') {
     interactionMessage = 'System Message: The user kissed your sprite.';
+  } else if (interactionType === 'pet_head') {
+    interactionMessage = 'System Message: The user gently pets your head.';
+    userInteractionLogMessage = 'System: User petted character on the head.';
+  } else if (interactionType === 'hold_hand') {
+    interactionMessage = 'System Message: The user wants to hold your hand.';
+    userInteractionLogMessage = 'System: User wants to hold character\'s hand.';
+  } else if (interactionType === 'high_five') {
+    interactionMessage = 'System Message: The user wants to give you a high five.';
+    userInteractionLogMessage = 'System: User initiated a high five.';
+  } else if (interactionType === 'give_massage') {
+    interactionMessage = 'System Message: The user gently starts to give you a shoulder massage.';
+    userInteractionLogMessage = 'System: User is giving character a massage.';
   } else if (interactionType === 'background_change') {
     if (!backgroundName) {
         return res.status(400).json({ error: 'Background name not specified for background_change interaction.' });
@@ -347,8 +361,8 @@ router.post('/api/interact/:interaction_type', async (req, res) => {
     interactionMessage = `System: The user took you to ${cleanBackgroundName}.`;
     userInteractionLogMessage = `System: User changed background to ${backgroundName}.`; 
   } else {
-    // Default for other potential body parts passed in URL (though specific cases are better)
-    interactionMessage = `System Message: The user stroke your ${interactionType} by interacting with your sprite.`;
+    // Fallback for any other interaction_type passed as a URL param, assuming it's a body part
+    interactionMessage = `System Message: The user stroke your ${interactionType.replace(/_/g, ' ')} by interacting with your sprite.`;
   };
 
   if (!interactionMessage) return res.status(500).json({ error: 'Couldn\'t perform action or invalid interaction type.' })
