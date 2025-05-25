@@ -1,0 +1,96 @@
+C:.
+│   .gitignore
+│   app.mjs
+│   LICENSE.MD
+│   main.mjs
+│   nodemon.json
+│   package-lock.json
+│   package.json
+│   README.MD
+│   render.d.ts
+│
+├───assets
+│   ├───backgrounds
+│   │       bedroom.png
+│   │       lake.png
+│   │       living_room.png
+│   │
+│   ├───bg_music
+│   │       Perfect Beauty.mp3
+│   │       Relaxing Ambient music Nostalgic Memories.mp3
+│   │       Relaxing Ambient music S Memories.mp3
+│   │       Simple Piano Melody.mp3
+│   │       Smooth Waters.mp3
+│   │       soft piano music.mp3
+│   │       Summer Walk.mp3
+│   │
+│   ├───icons
+│   │       icon.icns
+│   │       icon.ico
+│   │       icon.png
+│   │
+│   ├───logo
+│   │       initial.png
+│   │
+│   └───sprites
+│       ├───default_female
+│       │       angry.png
+│       │       annoyed.png
+│       │       blush.png
+│       │       delighted.png
+│       │       laugh.png
+│       │       normal.png
+│       │       sad.png
+│       │       shocked.png
+│       │       sleepy.png
+│       │       smile.png
+│       │       smug.png
+│       │
+│       ├───default_male
+│       │       angry.png
+│       │       annoyed.png
+│       │       happy.png
+│       │       laugh.png
+│       │       normal.png
+│       │       sad.png
+│       │       smug.png
+│       │       surprised.png
+│       │
+│       └───mod
+│               akward.png
+│               angry.png
+│               annoyed.png
+│               blush.png
+│               happy.png
+│               normal.png
+│               really_sad.png
+│               sad.png
+│               scared.png
+│               smile.png
+│               smug.png
+│               surprised.png
+│
+├───backups
+├───config
+│       user_config.json
+│       user_data.json
+│
+├───memory
+│       general.json
+│       long_term.json
+│       personality.txt
+│       short_term.json
+│
+├───public
+│       index.html
+│       index.mjs
+│       style.css
+│
+└───src
+        Generate_Prompt.mjs
+        get_images.mjs
+        LLM_Request.mjs
+        preload.mjs
+        Read_File.mjs
+        Routers.mjs
+        Write_To.mjs
