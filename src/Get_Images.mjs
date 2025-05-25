@@ -1,4 +1,3 @@
-// Get_Images.mjs
 import fsPromises from 'node:fs/promises'; // For async operations
 import fs from 'node:fs'; // For sync operations (like readdirSync)
 import path from 'node:path'; // Often useful, though not directly used in this snippet

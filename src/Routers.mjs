@@ -1,4 +1,3 @@
-// Routers.mjs
 import { Router } from 'express';
 import fsPromises from 'node:fs/promises';
 import fsSync from 'node:fs';

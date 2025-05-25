@@ -1,4 +1,3 @@
-// LLM_Request.mjs
 import OpenAI from 'openai';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -17,7 +16,6 @@ function getUserConfigPath() {
         return path.join('__error_USER_DATA_PATH_not_set__', 'config', 'user_config.json');
     }
     USER_CONFIG_PATH_INTERNAL = path.join(userDataEnvPath, 'config', 'user_config.json');
-    // console.log("LLM_Request: User config path set to:", USER_CONFIG_PATH_INTERNAL); // For debugging
     return USER_CONFIG_PATH_INTERNAL;
 }
 
@@ -42,7 +40,6 @@ function loadAndValidateConfig() {
                 return { key: null, base_url: null, model: null, supports_vision: false };
             }
         } else {
-            // console.warn(`${configPath} not found. API key needs configuration.`); // Can be noisy on first run
             return { key: null, base_url: null, model: null, supports_vision: false };
         }
     } catch (error) {
