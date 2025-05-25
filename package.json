@@ -11,7 +11,10 @@
     "dist": "electron-builder"
   },
   "keywords": [],
-  "author": "",
+  "author": {
+    "name": "MechaNeko Studios",
+    "email": "sergioalfonso_20@hotmail.com"
+  },
   "license": "CC BY-NC 4.0",
   "description": "",
   "dependencies": {
