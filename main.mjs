@@ -1,6 +1,6 @@
-// main.js
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, ipcMain, shell } from 'electron';
 import path from 'path';
+import fs from 'fs'; // For synchronous file operations
 import { fileURLToPath } from 'url';
 import { fork } from 'child_process';
 
@@ -9,77 +9,139 @@ const __dirname = path.dirname(__filename);
 
 let expressAppProcess;
 let mainWindow;
+let userDataPath; // Will store app.getPath('userData')
 
-// Function to start your Express server (app.mjs)
+// Function to create necessary directories in userData
+function ensureUserDataDirectories(basePath) {
+    console.log('Ensuring user data directories...');
+    const dirsToCreate = [
+        path.join(basePath, 'config'),
+        path.join(basePath, 'memory'),
+        path.join(basePath, 'assets'),
+        path.join(basePath, 'assets', 'sprites'),
+        path.join(basePath, 'assets', 'backgrounds'),
+        path.join(basePath, 'assets', 'bg_music'),
+        path.join(basePath, 'backups')
+    ];
+
+    dirsToCreate.forEach(dir => {
+        if (!fs.existsSync(dir)) {
+            try {
+                fs.mkdirSync(dir, { recursive: true });
+                console.log(`Created directory: ${dir}`);
+            } catch (error) {
+                console.error(`Failed to create directory ${dir}:`, error);
+            }
+        }
+    });
+}
+
+// Function to copy default assets if they don't exist in userData
+function copyDefaultAssets(sourceAssetsPath, targetUserDataAssetsPath) {
+    console.log('Copying default assets if necessary...');
+    const defaultAssetTypes = ['sprites', 'backgrounds', 'bg_music'];
+
+    defaultAssetTypes.forEach(assetType => {
+        const sourceDir = path.join(sourceAssetsPath, assetType);
+        const targetDir = path.join(targetUserDataAssetsPath, assetType);
+
+        if (fs.existsSync(sourceDir)) {
+            if (!fs.existsSync(targetDir)) {
+                try {
+                    fs.mkdirSync(targetDir, { recursive: true });
+                    console.log(`Created target asset directory: ${targetDir}`);
+                } catch (error) {
+                     console.error(`Failed to create target asset directory ${targetDir}:`, error);
+                     return; // Skip copying for this asset type if dir creation fails
+                }
+            }
+            
+            try {
+                const items = fs.readdirSync(sourceDir);
+                items.forEach(item => {
+                    const sourceItemPath = path.join(sourceDir, item);
+                    const targetItemPath = path.join(targetDir, item);
+
+                    if (!fs.existsSync(targetItemPath)) {
+                        try {
+                            if (fs.statSync(sourceItemPath).isDirectory()) {
+                                fs.cpSync(sourceItemPath, targetItemPath, { recursive: true });
+                                console.log(`Copied default asset directory: ${item} to ${assetType}`);
+                            } else {
+                                fs.copyFileSync(sourceItemPath, targetItemPath);
+                                console.log(`Copied default asset file: ${item} to ${assetType}`);
+                            }
+                        } catch (copyError) {
+                             console.error(`Failed to copy ${sourceItemPath} to ${targetItemPath}:`, copyError);
+                        }
+                    }
+                });
+            } catch (readError) {
+                console.error(`Failed to read source asset directory ${sourceDir}:`, readError);
+            }
+        } else {
+            console.warn(`Default asset source directory not found: ${sourceDir}`);
+        }
+    });
+}
+
 function startExpressApp() {
     return new Promise((resolve, reject) => {
+        const env = { ...process.env, USER_DATA_PATH: userDataPath, NODE_ENV: process.env.NODE_ENV };
         expressAppProcess = fork(path.join(__dirname, 'app.mjs'), [], {
-            // Pass environment variables if your app.mjs needs them
-            // env: { ...process.env, PORT: 3000 } // Example if you want to force port
+            env: env,
+            silent: false // Set to true to pipe stdout/stderr, false to inherit
         });
 
         expressAppProcess.on('message', (msg) => {
-            if (msg === 'server-started') { // You might need to add this message in app.mjs
+            if (msg === 'server-started') {
                 console.log('Express server reported as started.');
+                clearTimeout(serverStartTimeout); // Clear timeout if message received
                 resolve();
             }
-            console.log('Message from Express app:', msg);
         });
 
         expressAppProcess.on('error', (err) => {
             console.error('Failed to start Express app:', err);
+            clearTimeout(serverStartTimeout);
             reject(err);
-            app.quit();
+            // app.quit(); // Consider if app should quit or try to inform user
         });
 
-        expressAppProcess.on('exit', (code) => {
-            console.log(`Express app exited with code ${code}`);
+        expressAppProcess.on('exit', (code, signal) => {
+            console.log(`Express app exited with code ${code} and signal ${signal}`);
             // Optionally handle unexpected exits
-            if (code !== 0 && code !== null) {
-                // Consider notifying the user or attempting a restart
-            }
         });
-
-        // Fallback if server doesn't send a "ready" message
-        // Adjust timeout or implement a more robust check (e.g., pinging the server)
+        
+        // Fallback timeout if 'server-started' message isn't received
         const serverStartTimeout = setTimeout(() => {
-            console.warn('Express server start timeout. Assuming it started.');
-            resolve();
-        }, 5000); // 5 seconds timeout
-
-        // If using the 'message' event, clear the timeout
-        expressAppProcess.on('message', (msg) => {
-            if (msg === 'server-started') {
-                clearTimeout(serverStartTimeout);
-            }
-        });
+            console.warn('Express server start timeout. Assuming it started (or failed silently).');
+            resolve(); // Resolve anyway to let Electron window try to load
+        }, 7000); // Increased timeout slightly
     });
 }
 
-
 function createWindow () {
   mainWindow = new BrowserWindow({
-    width: 1280, // A bit larger for a desktop feel
+    width: 1280,
     height: 800,
-    icon: path.join(__dirname, 'assets', 'icons', 'icon.png'), // Add an icon file here
+    icon: path.join(__dirname, 'assets', 'icons', 'icon.png'), // This icon remains in the app package
     webPreferences: {
-      // preload: path.join(__dirname, 'preload.js'), // Optional for future IPC or secure Node.js access
-      nodeIntegration: false, // Recommended: Keep false as you load from localhost.
-      contextIsolation: true, // Recommended: For security.
-      // webSecurity: process.env.NODE_ENV === 'development' ? false : true, // Disable for dev if needed for certain localhost setups
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'src', 'preload.mjs') // Ensure this path is correct
     },
-    autoHideMenuBar: true //hide menu bar
+    autoHideMenuBar: true
   });
 
-  const port = process.env.PORT || 3000; // Match port from your app.mjs
+  const port = process.env.PORT || 3000;
   mainWindow.loadURL(`http://localhost:${port}`)
     .then(() => console.log(`Main window loaded http://localhost:${port}`))
     .catch(err => {
         console.error(`Failed to load URL http://localhost:${port}:`, err);
-        // You could show an error message to the user here
+        // TODO: Show an error message to the user in the window itself
     });
 
-  // Open the DevTools (optional, for debugging)
   if (process.env.NODE_ENV === 'development') {
     mainWindow.webContents.openDevTools();
   }
@@ -90,19 +152,28 @@ function createWindow () {
 }
 
 app.whenReady().then(async () => {
+  userDataPath = app.getPath('userData');
+  console.log(`User data path: ${userDataPath}`);
+  
+  ensureUserDataDirectories(userDataPath);
+
+  const projectAssetsPath = path.join(__dirname, 'assets'); 
+  const userDataAssetsPath = path.join(userDataPath, 'assets');
+  copyDefaultAssets(projectAssetsPath, userDataAssetsPath);
+
   try {
     await startExpressApp();
     createWindow();
   } catch (error) {
     console.error("Error during app startup:", error);
-    app.quit();
+    app.quit(); // Quit if Express server fails critically
     return;
   }
 
   app.on('activate', function () {
     if (BrowserWindow.getAllWindows().length === 0) {
-        // Check if Express app is still running, restart if necessary
         if (!expressAppProcess || expressAppProcess.killed) {
+            console.log("Express process not running, restarting on activate...");
             startExpressApp().then(createWindow).catch(err => {
                 console.error("Error restarting app on activate:", err);
                 app.quit();
@@ -115,26 +186,23 @@ app.whenReady().then(async () => {
 });
 
 app.on('window-all-closed', function () {
-  // On macOS it's common for applications and their menu bar
-  // to stay active until the user quits explicitly with Cmd + Q
   if (process.platform !== 'darwin') {
     app.quit();
   }
 });
 
-// Kill the Express server when Electron quits
 app.on('quit', () => {
   console.log('Electron app is quitting...');
-  if (expressAppProcess) {
+  if (expressAppProcess && !expressAppProcess.killed) {
     console.log('Killing Express app process...');
-    expressAppProcess.kill('SIGINT'); // Send SIGINT for graceful shutdown if app.mjs handles it
+    expressAppProcess.kill('SIGINT'); // Send SIGINT for graceful shutdown
   }
 });
 
-// Optional: Add a way for app.mjs to signal it's ready
-// In your app.mjs, after app.listen:
-/*
-if (process.send) { // Check if run as a child process
-    process.send('server-started');
-}
-*/
+// IPC Handler to open the modding folder (assets within userData)
+ipcMain.on('open-modding-folder', () => {
+    const moddingFolderPath = path.join(userDataPath, 'assets');
+    console.log(`Opening modding folder: ${moddingFolderPath}`);
+    shell.openPath(moddingFolderPath)
+        .catch(err => console.error("Failed to open modding folder:", err));
+});

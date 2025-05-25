@@ -15,11 +15,11 @@
   "license": "CC BY-NC 4.0",
   "description": "",
   "dependencies": {
-    "electron-builder": "^26.0.12",
     "express": "^5.1.0",
     "openai": "^4.98.0"
   },
   "devDependencies": {
+    "electron-builder": "^26.0.12",
     "electron": "^36.3.1",
     "nodemon": "^3.1.10"
   },
@@ -31,14 +31,11 @@
       "output": "dist_electron"
     },
     "files": [
-      "main.js",
+      "main.mjs",
       "app.mjs",
       "public/**/*",
       "assets/**/*",
       "src/**/*",
-      "memory/**/*",
-      "config/**/*",
-      "node_modules/**/*",
       "package.json"
     ],
     "mac": {

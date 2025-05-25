@@ -56,6 +56,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const optCreateBackupButton = document.getElementById('optCreateBackup');
     const optRestoreCharacterButton = document.getElementById('optRestoreCharacter');
     const optCreateNewCharacterButton = document.getElementById('optCreateNewCharacter');
+    const optOpenModdingFolderButton = document.getElementById('optOpenModdingFolder');
 
     // Memory Viewer Modal
     const memoryViewerModal = document.getElementById('memory-viewer-modal');
@@ -981,6 +982,19 @@ document.addEventListener('DOMContentLoaded', () => {
         hideModal(musicSettingsModal);
     });
 
+    // Modding folder button listener
+    if (optOpenModdingFolderButton) {
+        optOpenModdingFolderButton.addEventListener('click', () => {
+            markUserInteraction(); // Good practice if it might trigger audio/focus changes
+            if (window.electronAPI && typeof window.electronAPI.openModdingFolder === 'function') {
+                window.electronAPI.openModdingFolder();
+            } else {
+                console.error('electronAPI.openModdingFolder is not available. Ensure preload script is correctly configured.');
+                alert('Error: Could not open modding folder. This feature may not be available.');
+            }
+            hideModal(optionsModal); // Optionally hide the modal
+        });
+    }
 
     // --- Initial Setup ---
     initializeApp();
