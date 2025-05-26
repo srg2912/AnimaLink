@@ -1,6 +1,6 @@
-import { app, BrowserWindow, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, shell, screen } from 'electron'; // Added screen module
 import path from 'path';
-import fs from 'fs'; // For synchronous file operations
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { fork } from 'child_process';
 
@@ -9,7 +9,7 @@ const __dirname = path.dirname(__filename);
 
 let expressAppProcess;
 let mainWindow;
-let userDataPath; // Will store app.getPath('userData')
+let userDataPath;
 
 // Function to create necessary directories in userData
 function ensureUserDataDirectories(basePath) {
@@ -52,7 +52,7 @@ function copyDefaultAssets(sourceAssetsPath, targetUserDataAssetsPath) {
                     console.log(`Created target asset directory: ${targetDir}`);
                 } catch (error) {
                      console.error(`Failed to create target asset directory ${targetDir}:`, error);
-                     return; // Skip copying for this asset type if dir creation fails
+                     return;
                 }
             }
             
@@ -90,13 +90,13 @@ function startExpressApp() {
         const env = { ...process.env, USER_DATA_PATH: userDataPath, NODE_ENV: process.env.NODE_ENV };
         expressAppProcess = fork(path.join(__dirname, 'app.mjs'), [], {
             env: env,
-            silent: false // Set to true to pipe stdout/stderr, false to inherit
+            silent: false
         });
 
         expressAppProcess.on('message', (msg) => {
             if (msg === 'server-started') {
                 console.log('Express server reported as started.');
-                clearTimeout(serverStartTimeout); // Clear timeout if message received
+                clearTimeout(serverStartTimeout);
                 resolve();
             }
         });
@@ -116,20 +116,26 @@ function startExpressApp() {
         // Fallback timeout if 'server-started' message isn't received
         const serverStartTimeout = setTimeout(() => {
             console.warn('Express server start timeout. Assuming it started (or failed silently).');
-            resolve(); // Resolve anyway to let Electron window try to load
-        }, 7000); // Increased timeout slightly
+            resolve();
+        }, 7000);
     });
 }
 
 function createWindow () {
+  // Get primary display's work area dimensions
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const { width, height } = primaryDisplay.workAreaSize; // workAreaSize excludes taskbars, docks, etc.
+
+  console.log(`Detected screen work area: width=${width}, height=${height}`);
+
   mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 800,
-    icon: path.join(__dirname, 'assets', 'icons', 'icon.png'), // This icon remains in the app package
+    width: width,
+    height: height,
+    icon: path.join(__dirname, 'assets', 'icons', 'icon.png'),
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      preload: path.join(__dirname, 'src', 'preload.mjs') // Ensure this path is correct
+      preload: path.join(__dirname, 'src', 'preload.mjs')
     },
     autoHideMenuBar: true
   });
@@ -139,7 +145,6 @@ function createWindow () {
     .then(() => console.log(`Main window loaded http://localhost:${port}`))
     .catch(err => {
         console.error(`Failed to load URL http://localhost:${port}:`, err);
-        // TODO: Show an error message to the user in the window itself
     });
 
   if (process.env.NODE_ENV === 'development') {
@@ -166,7 +171,7 @@ app.whenReady().then(async () => {
     createWindow();
   } catch (error) {
     console.error("Error during app startup:", error);
-    app.quit(); // Quit if Express server fails critically
+    app.quit();
     return;
   }
 
@@ -195,7 +200,7 @@ app.on('quit', () => {
   console.log('Electron app is quitting...');
   if (expressAppProcess && !expressAppProcess.killed) {
     console.log('Killing Express app process...');
-    expressAppProcess.kill('SIGINT'); // Send SIGINT for graceful shutdown
+    expressAppProcess.kill('SIGINT');
   }
 });
 
