@@ -753,54 +753,76 @@ document.addEventListener('DOMContentLoaded', () => {
             showScreen('characterSetup');
         });
 
-        async function showMemory(type) {
-            const endpoint = type === 'shortTerm' ? '/api/memory/short_term' : '/api/memory/long_term';
-            const title = type === 'shortTerm' ? 'Chat History (Short-Term Memory)' : "Character's Diary (Long-Term Memory)";
-            
-            const data = await apiRequest(endpoint, 'GET', null, null); 
-            
-            memoryViewerTitle.textContent = title;
-            memoryViewerContent.innerHTML = ''; 
+    async function showMemory(type) {
+        const endpoint = type === 'shortTerm' ? '/api/memory/short_term' : '/api/memory/long_term';
+        const title = type === 'shortTerm' ? 'Chat History (Short-Term Memory)' : "Character's Diary (Long-Term Memory)";
+        
+        const data = await apiRequest(endpoint, 'GET', null, null); 
+        
+        memoryViewerTitle.textContent = title;
+        memoryViewerContent.innerHTML = ''; 
 
-            if (data && Array.isArray(data)) {
-                if (data.length === 0) {
-                    memoryViewerContent.textContent = 'No entries found.';
-                } else {
-                    const ul = document.createElement('ul');
-                    ul.style.listStyleType = 'none';
-                    ul.style.paddingLeft = '0';
-                    data.forEach(entry => {
-                        const li = document.createElement('li');
-                        li.style.marginBottom = '10px';
-                        li.style.padding = '8px';
-                        li.style.border = '1px solid rgba(255,255,255,0.2)';
-                        li.style.borderRadius = '4px';
-                        
-                        let contentHTML = `<strong>${entry.role || 'Entry'} (${new Date(entry.timestamp).toLocaleString()}):</strong><br>`;
-                        if (entry.sprite) contentHTML += `(Sprite: ${entry.sprite})<br>`;
-                        
-                        const contentTextNode = document.createTextNode(entry.content);
-                        li.innerHTML = contentHTML; 
-                        li.appendChild(contentTextNode); 
-
-                        if (entry.image_data && type === 'shortTerm') { 
-                            const img = document.createElement('img');
-                            img.src = entry.image_data;
-                            img.alt = "User's image";
-                            img.classList.add('message-image-thumbnail'); 
-                            img.style.maxWidth = '150px'; 
-                            img.style.marginTop = '5px';
-                            li.appendChild(img);
-                        }
-                        ul.appendChild(li);
-                    });
-                    memoryViewerContent.appendChild(ul);
-                }
+        if (data && Array.isArray(data)) {
+            if (data.length === 0) {
+                memoryViewerContent.textContent = 'No entries found.';
             } else {
-                memoryViewerContent.textContent = `Failed to load ${type === 'shortTerm' ? 'chat history' : 'diary'}. ${data?.error || data?.message || 'Unknown error.'}`;
+                const ul = document.createElement('ul');
+                ul.style.listStyleType = 'none';
+                ul.style.paddingLeft = '0';
+
+                // Get user and character names
+                const characterDisplayName = currentCharacterSetupData?.name || 'Character';
+                const userDisplayName = currentUserData?.name || 'User';
+
+                data.forEach(entry => {
+                    const li = document.createElement('li');
+                    li.style.marginBottom = '10px';
+                    li.style.padding = '8px';
+                    li.style.border = '1px solid rgba(255,255,255,0.2)';
+                    li.style.borderRadius = '4px';
+                    
+                    let displayName;
+                    let roleClass;
+
+                    if (entry.role === 'assistant') {
+                        displayName = characterDisplayName;
+                        roleClass = 'memory-char-header';
+                    } else if (entry.role === 'user') {
+                        displayName = userDisplayName;
+                        roleClass = 'memory-user-header';
+                    } else {
+                        displayName = entry.role || 'Entry';
+                        roleClass = 'memory-generic-header';
+                    }
+                    
+                    let headerHTML = `<span class="${roleClass}"><strong>${displayName}</strong> (${new Date(entry.timestamp).toLocaleString()})</span><br>`;
+                    
+                    if (entry.sprite && entry.role === 'assistant') {
+                        headerHTML += `<span class="memory-sprite-info">(Sprite: ${entry.sprite})</span><br>`;
+                    }
+                    
+                    li.innerHTML = headerHTML;
+
+                    const contentTextNode = document.createTextNode(entry.content);
+                    li.appendChild(contentTextNode);
+
+                    if (entry.image_data && type === 'shortTerm') { 
+                        const img = document.createElement('img');
+                        img.src = entry.image_data;
+                        img.alt = "User's image";
+                        img.classList.add('message-image-thumbnail'); 
+                        img.style.marginTop = '5px';
+                        li.appendChild(img);
+                    }
+                    ul.appendChild(li);
+                });
+                memoryViewerContent.appendChild(ul);
             }
-            showModal(memoryViewerModal);
+        } else {
+            memoryViewerContent.textContent = `Failed to load ${type === 'shortTerm' ? 'chat history' : 'diary'}. ${data?.error || data?.message || 'Unknown error.'}`;
         }
+        showModal(memoryViewerModal);
+    }
 
         optViewShortTermMemory.addEventListener('click', () => {
             hideModal(optionsModal);

@@ -1,7 +1,7 @@
 body {
     font-family: sans-serif;
     margin: 0;
-    background-color: #000000; /* Default to black */
+    background-color: #000000;
     color: #333; 
     display: flex;
     justify-content: center;
@@ -18,7 +18,7 @@ body {
     left: 0;
     width: 100vw;
     height: 100vh;
-    background-color: black; /* Explicitly black, though body is also black */
+    background-color: black;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -40,7 +40,6 @@ body {
     padding: 20px;
     border-radius: 8px;
     box-sizing: border-box;
-    /* display: none; will be handled by JS or inline style */
 }
 
 .screen {
@@ -178,13 +177,13 @@ body {
 #chat-area {
     position: absolute;
     top: 50%;
-    right: 20px; /* Adjust if needed for different screen ratios */
+    right: 20px;
     transform: translateY(-50%);
-    width: 25%; /* This can be a fixed width or max-width if preferred */
-    min-width: 280px; /* Prevent it from becoming too narrow */
-    max-width: 400px; /* Prevent it from becoming too wide on large screens */
+    width: 25%;
+    min-width: 280px;
+    max-width: 400px;
     height: 90%;
-    max-height: 700px; /* Optional: cap height */
+    max-height: 700px;
     background-color: rgba(50, 50, 50, 0.85);
     color: white;
     padding: 15px;
@@ -194,7 +193,7 @@ body {
     display: flex;
     flex-direction: column;
     box-shadow: 0 5px 20px rgba(0,0,0,0.3);
-    overflow: hidden; /* Ensure chat area itself clips overflowing content */
+    overflow: hidden;
 }
 
 #message-display {
@@ -230,40 +229,38 @@ body {
 
 #input-area {
     display: flex;
-    align-items: center; /* Vertically align items in the input area */
-    gap: 8px; /* Space between elements */
-    margin-top: auto; /* Pushes to the bottom of chat-area */
-    width: 100%; /* Ensure it takes full width of its parent */
+    align-items: center;
+    gap: 8px;
+    margin-top: auto;
+    width: 100%;
     box-sizing: border-box;
 }
 
 #userMessageInput {
-    flex-grow: 1; /* Allows the input to take up available space */
-    flex-shrink: 1; /* Allows the input to shrink if necessary */
-    min-width: 0; /* Crucial for flex items to shrink below their content size */
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 0;
     margin-bottom: 0;
-    /* margin-right is now handled by gap in #input-area */
     background-color: rgba(255, 255, 255, 0.2);
     color: white;
     border: 1px solid rgba(255,255,255,0.4);
     border-radius: 20px;
     padding: 10px 15px;
-    font-size: 0.9em; /* Slightly reduce font size if needed for compactness */
+    font-size: 0.9em;
 }
 #userMessageInput::placeholder {
     color: rgba(255,255,255,0.7);
 }
 
 #sendMessageButton {
-    flex-shrink: 0; /* Prevent button from shrinking */
-    width: 40px;    /* Fixed width */
-    height: 40px;   /* Fixed height */
-    border-radius: 50%; /* Make it circular */
-    padding: 0;         /* Remove default padding */
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    padding: 0;
     display: flex;
     justify-content: center;
     align-items: center;
-    /* background-color and border from .game-button are fine */
 }
 
 #left-controls {
@@ -376,6 +373,24 @@ body {
     border: 1px solid rgba(255, 255, 255, 0.2);
     border-radius: 4px;
     color: white;
+}
+
+/* Styles for memory viewer headers */
+.memory-user-header {
+    color: #87CEFA;
+}
+
+.memory-char-header {
+    color: #FFB6C1;
+}
+
+.memory-generic-header {
+    color: #DDDDDD;
+}
+
+.memory-sprite-info {
+    color: #cccccc;
+    font-size: 0.9em;
 }
 
 .inline-label {
@@ -616,11 +631,11 @@ body {
     text-align: center; 
     margin-bottom: 15px;
 }
-#restore-backup-modal .modal-content p { /* For the warning message */
+#restore-backup-modal .modal-content p {
     margin-bottom: 15px;
     line-height: 1.4;
-    color: #FFDDDD; /* Light red for warning text */
-    background-color: rgba(139, 0, 0, 0.3); /* Dark red transparent background */
+    color: #FFDDDD;
+    background-color: rgba(139, 0, 0, 0.3);
     padding: 10px;
     border-radius: 4px;
     border: 1px solid rgba(255, 100, 100, 0.5);
@@ -649,5 +664,5 @@ body {
     margin-right: 0; 
 }
 #restore-backup-modal .error-message {
-    margin-top: 15px; /* Give some space for error message */
+    margin-top: 15px;
 }

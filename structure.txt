@@ -7,7 +7,9 @@ C:.
 │   package-lock.json
 │   package.json
 │   README.MD
+│   reminder.txt
 │   render.d.ts
+│   structure.txt
 │
 ├───assets
 │   ├───backgrounds
@@ -28,9 +30,6 @@ C:.
 │   │       icon.icns
 │   │       icon.ico
 │   │       icon.png
-│   │
-│   ├───logo
-│   │       initial.png
 │   │
 │   └───sprites
 │       ├───default_female
@@ -82,9 +81,12 @@ C:.
 │       short_term.json
 │
 ├───public
-│       index.html
-│       index.mjs
-│       style.css
+│   │   index.html
+│   │   index.mjs
+│   │   style.css
+│   │
+│   └───logo
+│           initial.png
 │
 └───src
         Generate_Prompt.mjs
