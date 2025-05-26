@@ -61,6 +61,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const optCreateNewCharacterButton = document.getElementById('optCreateNewCharacter');
     const optOpenModdingFolderButton = document.getElementById('optOpenModdingFolder');
 
+    // Restore Backup Modal Elements
+    const restoreBackupModal = document.getElementById('restore-backup-modal');
+    const closeRestoreBackupModalButton = document.getElementById('closeRestoreBackupModal');
+    const backupSelectorInput = document.getElementById('backupSelectorInput');
+    const applyRestoreBackupButton = document.getElementById('applyRestoreBackupButton');
+    const restoreBackupError = document.getElementById('restoreBackupError');
+
     // Memory Viewer Modal
     const memoryViewerModal = document.getElementById('memory-viewer-modal');
     const closeMemoryViewerModalButton = document.getElementById('closeMemoryViewerModal');
@@ -703,21 +710,13 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         function closeModalOnClickOutside(event) {
-            if (event.target === optionsModal) {
-                hideModal(optionsModal);
-            }
-            if (event.target === memoryViewerModal) {
-                hideModal(memoryViewerModal);
-            }
-            if (event.target === backgroundSelectorModal) { 
-                hideModal(backgroundSelectorModal);
-            }
-            if (event.target === musicSettingsModal) { 
-                hideModal(musicSettingsModal);
-            }
+            if (event.target === optionsModal) hideModal(optionsModal);
+            if (event.target === memoryViewerModal) hideModal(memoryViewerModal);
+            if (event.target === backgroundSelectorModal) hideModal(backgroundSelectorModal);
+            if (event.target === musicSettingsModal) hideModal(musicSettingsModal);
+            if (event.target === restoreBackupModal) hideModal(restoreBackupModal);
         }
         window.addEventListener('click', closeModalOnClickOutside);
-
 
         optChangeApiKey.addEventListener('click', () => {
             hideModal(optionsModal);
@@ -826,23 +825,72 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         optRestoreCharacterButton.addEventListener('click', async () => {
-            hideModal(optionsModal);
-            const confirmRestore = confirm("Restoring a backup will overwrite the current character's data and chat history. Please make a backup of the current character first if needed. Continue?");
-            if (!confirmRestore) return;
+            hideModal(optionsModal); // Hide the main options modal first
+            displayError(restoreBackupError, ''); // Clear previous errors
 
-            const characterName = prompt("Enter the exact name of the character whose backup you want to restore:");
-            if (characterName === null) return; 
-            if (!characterName.trim()) {
-                alert("Character name cannot be empty.");
+            try {
+                const backupListResponse = await apiRequest('/api/backups/list', 'GET', null, restoreBackupError);
+                if (backupListResponse && Array.isArray(backupListResponse)) {
+                    backupSelectorInput.innerHTML = ''; // Clear previous options
+                    if (backupListResponse.length === 0) {
+                        const option = document.createElement('option');
+                        option.textContent = 'No backups found.';
+                        option.disabled = true;
+                        backupSelectorInput.appendChild(option);
+                        applyRestoreBackupButton.disabled = true;
+                    } else {
+                        backupListResponse.forEach(backupInfo => {
+                            const option = document.createElement('option');
+                            // Value will be the characterName, which the backend uses to find the file
+                            option.value = backupInfo.characterName; 
+                            option.textContent = backupInfo.characterName.replace(/_/g, ' '); // Display name nicely
+                            backupSelectorInput.appendChild(option);
+                        });
+                        applyRestoreBackupButton.disabled = false;
+                    }
+                    showModal(restoreBackupModal);
+                } else {
+                     // Error already displayed by apiRequest if restoreBackupError was passed
+                    if (!restoreBackupError.textContent) {
+                        displayError(restoreBackupError, backupListResponse?.error || 'Failed to load backup list.');
+                    }
+                     showModal(restoreBackupModal); // Show modal anyway to display error
+                }
+            } catch (error) {
+                displayError(restoreBackupError, 'Error trying to fetch backup list: ' + error.message);
+                showModal(restoreBackupModal); // Show modal to display error
+            }
+        });
+
+        closeRestoreBackupModalButton.addEventListener('click', () => {
+            hideModal(restoreBackupModal);
+        });
+
+        applyRestoreBackupButton.addEventListener('click', async () => {
+            const selectedCharacterName = backupSelectorInput.value;
+            if (!selectedCharacterName || backupSelectorInput.selectedOptions[0]?.disabled) {
+                displayError(restoreBackupError, 'Please select a valid backup from the list.');
                 return;
             }
 
-            const result = await apiRequest(`/api/backups/${characterName.trim()}`, 'GET', null, errorMessages.gameScreen);
+            applyRestoreBackupButton.disabled = true;
+            displayError(restoreBackupError, ''); // Clear previous errors
+
+            // The characterName itself is used in the URL, backend constructs filename.
+            const result = await apiRequest(`/api/backups/${selectedCharacterName}`, 'GET', null, restoreBackupError);
+            
+            applyRestoreBackupButton.disabled = false;
+
             if (result && result.message && !result.error) {
-                alert(result.message);
-                await initializeApp(); 
+                alert(result.message); // Success message
+                hideModal(restoreBackupModal);
+                await initializeApp(); // Re-initialize the whole app to load new character
             } else {
-                alert(`Failed to restore backup for "${characterName.trim()}": ${result?.error || 'Backup not found or error occurred.'}`);
+                // Error is already displayed by apiRequest if restoreBackupError was passed.
+                // If not, display a generic one.
+                if (!restoreBackupError.textContent) {
+                     displayError(restoreBackupError, `Failed to restore backup for "${selectedCharacterName}": ${result?.error || 'Backup not found or error occurred.'}`);
+                }
             }
         });
 

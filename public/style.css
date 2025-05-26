@@ -588,3 +588,43 @@ body {
   margin-top: 0px;
   box-shadow: 0 0 2px rgba(0,0,0,0.5);
 }
+
+#restore-backup-modal .modal-content h2 {
+    text-align: center; 
+    margin-bottom: 15px;
+}
+#restore-backup-modal .modal-content p { /* For the warning message */
+    margin-bottom: 15px;
+    line-height: 1.4;
+    color: #FFDDDD; /* Light red for warning text */
+    background-color: rgba(139, 0, 0, 0.3); /* Dark red transparent background */
+    padding: 10px;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 100, 100, 0.5);
+}
+#restore-backup-modal .modal-content label {
+    color: white; 
+    margin-bottom: 8px;
+}
+#restore-backup-modal .game-select,
+#restore-backup-modal #backupSelectorInput { 
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 20px;
+    background-color: rgba(0, 0, 0, 0.3); 
+    color: white; 
+    border: 1px solid rgba(255, 255, 255, 0.5); 
+    border-radius: 5px;
+}
+#restore-backup-modal #backupSelectorInput option {
+    background-color: rgba(50, 50, 50, 0.9); 
+    color: white; 
+}
+
+#restore-backup-modal .game-button { 
+    width: 100%;
+    margin-right: 0; 
+}
+#restore-backup-modal .error-message {
+    margin-top: 15px; /* Give some space for error message */
+}

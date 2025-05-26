@@ -521,45 +521,67 @@ export default function createRouter(userDataPath) { // Accept userDataPath
       }
     });
 
+    // GET Request to list available backup files
+    router.get('/api/backups/list', (req, res) => {
+        try {
+            if (!fsSync.existsSync(BACKUPS_DIR_PATH)) {
+                console.warn(`Backups directory not found: ${BACKUPS_DIR_PATH}`);
+                return res.status(200).json([]); // Return empty if dir doesn't exist
+            }
+            const allFiles = listFilesInDirectory(BACKUPS_DIR_PATH); // Assuming listFilesInDirectory is synchronous
+            const backupFiles = allFiles.filter(file => file.endsWith('_backup.json'));
+            
+            // Extract character names from filenames for display
+            const backupInfos = backupFiles.map(file => {
+                const characterName = file.replace('_backup.json', '');
+                return { fileName: file, characterName: characterName };
+            });
+            res.status(200).json(backupInfos);
+        } catch (error) {
+            console.error('Error listing backup files:', error);
+            res.status(500).json({ error: 'Failed to retrieve backup files list.' });
+        }
+    });
+
     // GET Request to retrieve data from backup
     router.get('/api/backups/:name', async (req, res) => {
-        const name = req.params.name;
-      if (!name) return res.status(400).json({ error: 'Bad request.' });
-      // Sanitize name before using it in a path
-      const safeName = name.replace(/[^a-z0-9_.-]/gi, '_');
-      const backupFilePath = path.join(BACKUPS_DIR_PATH, `${safeName}_backup.json`);
+        const characterNameFromRequest = req.params.name; // This should be the 'characterName' part
+      if (!characterNameFromRequest) return res.status(400).json({ error: 'Bad request: Character name for backup not provided.' });
+      
+      const safeName = characterNameFromRequest.replace(/[^a-z0-9_.-]/gi, '_'); // Sanitize if needed, though it should be from our list
+      const backupFileName = `${safeName}_backup.json`;
+      const backupFilePath = path.join(BACKUPS_DIR_PATH, backupFileName);
 
       try {
-        const backupRaw = await readTextFile(backupFilePath); // readTextFile handles ENOENT
+        const backupRaw = await readTextFile(backupFilePath);
+        if (!backupRaw) { // readTextFile returns undefined on ENOENT
+             console.error(`Backup file not found: ${backupFilePath}`);
+             return res.status(404).json({ error: `Backup for '${characterNameFromRequest}' not found.` });
+        }
         const backupObject = JSON.parse(backupRaw);
-
-        // backupRaw would be undefined if file not found and readTextFile logs error + returns undefined
-        if (!backupObject) return res.status(404).json({ error: 'Backup not found or is empty.' });
 
 
         const { general, shortTerm, longTerm, personality } = backupObject;
         
-        // Validate data structure before writing
         if (!general || !Array.isArray(shortTerm) || !Array.isArray(longTerm) || typeof personality !== 'string') {
             return res.status(400).json({ error: 'Backup data is malformed.' });
         }
-
 
         await updateMemoryFile(SHORT_TERM_MEMORY_PATH, shortTerm);
         await updateMemoryFile(LONG_TERM_MEMORY_PATH, longTerm);
         await updateTextFile(JSON.stringify(general, null, 2), GENERAL_MEMORY_PATH, 'w');
         await updateTextFile(personality, PERSONALITY_PATH, 'w');
 
-        // Force LLM reinitialization if API key might have changed via backup
         reloadConfigAndReinitializeClient();
 
-        res.status(200).json({ message: `Memory for '${safeName}' restored successfully.` });
+        res.status(200).json({ message: `Memory for '${characterNameFromRequest}' restored successfully.` });
       } catch (error) {
-        console.error(error);
-        if (error.code === 'ENOENT' || (error instanceof SyntaxError)) { 
-            return res.status(404).json({ error: `Backup file for '${safeName}' not found or is invalid JSON.` });
+        console.error("Error restoring backup:", error);
+        if (error instanceof SyntaxError) { 
+            return res.status(400).json({ error: `Backup file for '${characterNameFromRequest}' is invalid JSON.` });
         }
-        res.status(500).json({ error: `Failed to get backup for '${safeName}'.` });
+        // readTextFile handles ENOENT by returning undefined, caught above.
+        res.status(500).json({ error: `Failed to restore backup for '${characterNameFromRequest}'. ${error.message}` });
       }
     });
 
