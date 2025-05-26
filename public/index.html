@@ -7,7 +7,12 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div id="app-container">
+    <!-- Splash Screen -->
+    <div id="splash-screen">
+        <img id="splash-logo" src="/logo/initial.png" alt="AnimaLink Loading...">
+    </div>
+
+    <div id="app-container" style="display: none;"> <!-- Initially hidden -->
         <audio id="bgMusicPlayer" loop></audio> <!-- Hidden Audio Player -->
 
         <!-- API Key Setup Screen -->
@@ -140,7 +145,7 @@
                 <button id="optViewLongTermMemory">View Character Diary</button>
                 <button id="optCreateBackup" class="game-button">Create Backup</button>
                 <button id="optRestoreCharacter" class="game-button">Restore Character</button>
-                <button id="optOpenModdingFolder" class="game-button">Open Modding Folder</button> <!-- ADDED LINE -->
+                <button id="optOpenModdingFolder" class="game-button">Open Modding Folder</button>
                 <button id="optCreateNewCharacter" class="game-button">Create New Character</button>
             </div>
         </div>
@@ -181,7 +186,7 @@
         </div>
 
 
-    </div>
+    </div> <!-- End of app-container -->
     <script src="index.mjs" type="module"></script>
 </body>
 </html>

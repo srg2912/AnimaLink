@@ -1,4 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // --- Splash Screen Elements ---
+    const splashScreenElement = document.getElementById('splash-screen');
+    const appContainerElement = document.getElementById('app-container');
     // --- DOM Elements ---
     const screens = {
         apiKey: document.getElementById('api-key-screen'),
@@ -101,15 +104,17 @@ document.addEventListener('DOMContentLoaded', () => {
         Object.values(screens).forEach(screen => screen.style.display = 'none');
         if (screens[screenId]) {
             screens[screenId].style.display = 'block';
-            const appContainer = document.getElementById('app-container');
+            
             if (screenId === 'game') {
-                 appContainer.style.maxWidth = '100vw';
-                 appContainer.style.padding = '0';
-                 appContainer.style.backgroundColor = 'transparent'; 
-            } else {
-                 appContainer.style.maxWidth = '800px';
-                 appContainer.style.padding = '20px'; 
-                 appContainer.style.backgroundColor = 'transparent'; 
+                 appContainerElement.style.maxWidth = '100vw';
+                 appContainerElement.style.padding = '0';
+                 appContainerElement.style.backgroundColor = 'transparent'; 
+                 document.body.style.backgroundColor = '#000000'; // Ensure body is black for game screen
+            } else { // For setup screens (API key, user data, character setup)
+                 appContainerElement.style.maxWidth = '800px';
+                 appContainerElement.style.padding = '20px'; 
+                 appContainerElement.style.backgroundColor = 'transparent'; 
+                 document.body.style.backgroundColor = '#FFC5D3'; // Set body to pink for setup screens
             }
             toggleAttachButtonVisibility();
             if (screenId === 'game' && !initialMusicPlayAttempted) {
@@ -119,6 +124,7 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error("Screen not found:", screenId);
         }
     }
+
 
     function showModal(modalElement) {
         if (modalElement) {
@@ -322,7 +328,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const apiKeyStatusResponse = await apiRequest('/api/status/api_key', 'GET', null, null, true);
 
         if (!apiKeyStatusResponse || apiKeyStatusResponse.networkError) {
-            showScreen('apiKey');
+            // showScreen will set body background
+            showScreen('apiKey'); 
              if (apiKeyStatusResponse && apiKeyStatusResponse.message) {
                  displayError(errorMessages.apiKey, `Network error checking API status: ${apiKeyStatusResponse.message}`);
             } else {
@@ -363,17 +370,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     forms.characterCreate.sprite.value = currentSpriteFolder || '';
                 }
                 
-                await goToGameScreen(true);
+                await goToGameScreen(true); // This calls showScreen('game')
             } else {
                 prefillUserDataForm(); 
-                showScreen('characterSetup');
+                showScreen('characterSetup'); // This calls showScreen for a setup screen
                  if (charProfileResponse && charProfileResponse.error && !charProfileResponse.notFound) {
                     displayError(errorMessages.characterCreate, `Error fetching character profile: ${charProfileResponse.error}`);
                 }
             }
         } else {
             prefillUserDataForm(); 
-            showScreen('userData');
+            showScreen('userData'); // This calls showScreen for a setup screen
             if (userDataResponse && userDataResponse.error && !userDataResponse.notFound) {
                 displayError(errorMessages.userData, `Error fetching user data: ${userDataResponse.error}`);
             }
@@ -451,551 +458,618 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
-    // --- Event Listeners ---
-    // General click listener to mark user interaction for audio playback
-    document.body.addEventListener('click', markUserInteraction, { capture: true, once: true });
+    // --- Event Listeners (will be attached after splash) ---
+    function attachEventListeners() {
+        // General click listener to mark user interaction for audio playback
+        document.body.addEventListener('click', markUserInteraction, { capture: true, once: true });
 
+        forms.apiKey.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            markUserInteraction();
+            const formData = new FormData(forms.apiKey);
+            const data = Object.fromEntries(formData.entries());
+            data.supports_vision = apiKeySupportsVisionCheckbox.checked;
 
-    forms.apiKey.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        markUserInteraction();
-        const formData = new FormData(forms.apiKey);
-        const data = Object.fromEntries(formData.entries());
-        data.supports_vision = apiKeySupportsVisionCheckbox.checked;
-
-        const result = await apiRequest('/api/api_key', 'POST', data, errorMessages.apiKey); 
-        if (result && result.model && !result.error) { 
-            visionSupportedByCurrentModel = result.supports_vision || false;
-            supportsVisionCheckbox.checked = visionSupportedByCurrentModel;
-            await initializeApp();
-        }
-    });
-
-    forms.userData.addEventListener('submit', async (e) => {
-         e.preventDefault();
-         markUserInteraction();
-        const formData = new FormData(forms.userData);
-        let data = Object.fromEntries(formData.entries());
-
-        if (!data.name?.trim() || !data.gender?.trim() || !data.pronouns?.trim()) {
-            displayError(errorMessages.userData, "Name, Gender, and Pronouns are required.");
-            return;
-        }
-
-        let method = isUserDataEditing ? 'PATCH' : 'POST';
-        const result = await apiRequest('/api/user_data', method, data, errorMessages.userData);
-        
-        if (result && (result.name || result.status === 201 || result.status === 200) && !result.error) {
-            currentUserData = result.name ? result : { ...currentUserData, ...data };
-
-            if (isUserDataEditing) {
-                alert('User data updated successfully!');
-                hideModal(optionsModal);
-                isUserDataEditing = false;
-                userDataSubmitButton.textContent = 'Save User Data';
+            const result = await apiRequest('/api/api_key', 'POST', data, errorMessages.apiKey); 
+            if (result && result.model && !result.error) { 
+                visionSupportedByCurrentModel = result.supports_vision || false;
+                supportsVisionCheckbox.checked = visionSupportedByCurrentModel;
+                await initializeApp(); // Re-initialize to reflect potential changes (like vision support)
             }
-            await initializeApp(); 
-        } else if (!result) {
-            displayError(errorMessages.userData, "Failed to save user data. Unknown error.");
-        }
-    });
+        });
 
-    forms.characterCreate.addEventListener('submit', async (e) => {
-         e.preventDefault();
-         markUserInteraction();
-        const formData = new FormData(forms.characterCreate);
-        const data = Object.fromEntries(formData.entries());
-        
-        if (!data.name?.trim() || !data.looks?.trim() || !data.personality?.trim() || !data.language?.trim() || !data.sprite?.trim()) {
-            displayError(errorMessages.characterCreate, "All fields with * are required.");
-            return;
-        }
-        
-        const result = await apiRequest('/api/personality', 'POST', data, errorMessages.characterCreate);
-        if (result && result.characterProfile && !result.error) {
-            currentCharacterPersonalityText = result.characterProfile;
-            const generalInfoResponse = await apiRequest('/api/personality', 'GET', null, errorMessages.characterCreate);
-            if (generalInfoResponse && generalInfoResponse.general) {
-                currentCharacterSetupData = generalInfoResponse.general;
-                currentSpriteFolder = generalInfoResponse.general.sprite; 
-            } else {
-                 currentCharacterSetupData = { ...data, rawPersonalityInput: data.personality };
-                 currentSpriteFolder = data.sprite; 
-            }
-            generatedPersonalityTextarea.value = result.characterProfile;
-            characterEditSection.style.display = 'block';
-        }
-    });
+        forms.userData.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            markUserInteraction();
+            const formData = new FormData(forms.userData);
+            let data = Object.fromEntries(formData.entries());
 
-    saveEditedPersonalityButton.addEventListener('click', async () => {
-        markUserInteraction();
-        const editedProfile = generatedPersonalityTextarea.value;
-        if (!editedProfile.trim()) {
-            displayError(errorMessages.characterEdit, 'Personality cannot be empty.');
-            return;
-        }
-        const result = await apiRequest('/api/personality', 'PATCH', { edit: editedProfile }, errorMessages.characterEdit);
-        if (result && result.characterProfile && !result.error) {
-            currentCharacterPersonalityText = result.characterProfile;
-            alert('Character profile updated!');
-            if (isCharacterProfileEditing) { 
-                hideModal(optionsModal);
-                isCharacterProfileEditing = false;
-                await initializeApp(); 
-            } else {
-                 characterEditSection.style.display = 'block'; 
-            }
-        }
-    });
-    
-    continueToGameButtonElement.addEventListener('click', async () => {
-        markUserInteraction();
-        if (!currentCharacterSetupData.name) { 
-            const formData = new FormData(forms.characterCreate);
-            currentCharacterSetupData.name = formData.get('name');
-            currentCharacterSetupData.looks = formData.get('looks');
-            currentCharacterSetupData.language = formData.get('language');
-            currentCharacterSetupData.sprite = formData.get('sprite');
-        }
-        if (!currentSpriteFolder && forms.characterCreate.sprite.value) {
-            currentSpriteFolder = forms.characterCreate.sprite.value;
-            if (currentCharacterSetupData) currentCharacterSetupData.sprite = currentSpriteFolder;
-        }
-        
-        if (!currentSpriteFolder) {
-            displayError(errorMessages.characterEdit, "Sprite folder is missing. Please fill the 'Sprite Folder To Use' field and generate/save the profile. Cannot continue.");
-            return;
-        }
-        await goToGameScreen(false); 
-    });
-
-    async function handleInteractionResponse(result) {
-        if (result && result.content) {
-            addMessageToDisplay('assistant', result.content);
-            if (result.sprite) {
-                changeSprite(result.sprite);
-            }
-        } else {
-            const errorMessage = result?.error || "LLM interaction request failed or returned an invalid response.";
-            addMessageToDisplay('assistant', `Sorry, I had trouble responding. (${errorMessage})`);
-            if (!result?.error && errorMessages.gameScreen) {
-                 displayError(errorMessages.gameScreen, errorMessage);
-            }
-        }
-    }
-
-    sendMessageButton.addEventListener('click', async () => {
-        markUserInteraction();
-        const messageText = userMessageInput.value.trim();
-        if (!messageText && !selectedImageBase64) return;
-
-        addMessageToDisplay('user', messageText || "[Image]", selectedImageBase64); 
-        
-        const payload = { message: messageText };
-        if (selectedImageBase64) {
-            payload.image_data = selectedImageBase64;
-        }
-
-        userMessageInput.value = '';
-        removeImagePreview(); 
-        sendMessageButton.disabled = true;
-        attachImageButton.disabled = true;
-
-        const result = await apiRequest('/api/message', 'POST', payload, errorMessages.gameScreen);
-        
-        sendMessageButton.disabled = false;
-        if (visionSupportedByCurrentModel) attachImageButton.disabled = false;
-        handleInteractionResponse(result);
-    });
-    userMessageInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) { 
-            e.preventDefault(); 
-            sendMessageButton.click(); 
-        }
-    });
-
-    performActionButton.addEventListener('click', async () => {
-        markUserInteraction();
-        const selectedAction = actionSelector.value;
-        if (!selectedAction) return;
-
-        performActionButton.disabled = true;
-        const result = await apiRequest(`/api/interact/${selectedAction}`, 'POST', {}, errorMessages.gameScreen);
-        performActionButton.disabled = false;
-        handleInteractionResponse(result);
-    });
-
-    attachImageButton.addEventListener('click', () => {
-        markUserInteraction();
-        imageUploadInput.click();
-    });
-
-    imageUploadInput.addEventListener('change', (event) => {
-        const file = event.target.files[0];
-        if (file) {
-            if (!['image/png', 'image/jpeg', 'image/gif', 'image/webp'].includes(file.type)) {
-                alert('Invalid file type. Please select a PNG, JPG, GIF, or WEBP image.');
-                imageUploadInput.value = ''; 
+            if (!data.name?.trim() || !data.gender?.trim() || !data.pronouns?.trim()) {
+                displayError(errorMessages.userData, "Name, Gender, and Pronouns are required.");
                 return;
             }
-            if (file.size > 7 * 1024 * 1024) { 
-                 alert('File is too large. Please select an image under 7MB.');
-                 imageUploadInput.value = '';
-                 return;
+
+            let method = isUserDataEditing ? 'PATCH' : 'POST';
+            const result = await apiRequest('/api/user_data', method, data, errorMessages.userData);
+            
+            if (result && (result.name || result.status === 201 || result.status === 200) && !result.error) {
+                currentUserData = result.name ? result : { ...currentUserData, ...data };
+
+                if (isUserDataEditing) {
+                    alert('User data updated successfully!');
+                    hideModal(optionsModal);
+                    isUserDataEditing = false;
+                    userDataSubmitButton.textContent = 'Save User Data';
+                    // No need to call initializeApp() fully again if just editing,
+                    // but if setup flow depends on it, then call it.
+                    // For now, assume the next step is character setup or game.
+                    showScreen('characterSetup'); // Or wherever appropriate after user data edit
+                } else {
+                    // This is initial setup
+                    showScreen('characterSetup');
+                }
+            } else if (!result) {
+                displayError(errorMessages.userData, "Failed to save user data. Unknown error.");
+            }
+        });
+
+        forms.characterCreate.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            markUserInteraction();
+            const formData = new FormData(forms.characterCreate);
+            const data = Object.fromEntries(formData.entries());
+            
+            if (!data.name?.trim() || !data.looks?.trim() || !data.personality?.trim() || !data.language?.trim() || !data.sprite?.trim()) {
+                displayError(errorMessages.characterCreate, "All fields with * are required.");
+                return;
+            }
+            
+            const result = await apiRequest('/api/personality', 'POST', data, errorMessages.characterCreate);
+            if (result && result.characterProfile && !result.error) {
+                currentCharacterPersonalityText = result.characterProfile;
+                const generalInfoResponse = await apiRequest('/api/personality', 'GET', null, errorMessages.characterCreate);
+                if (generalInfoResponse && generalInfoResponse.general) {
+                    currentCharacterSetupData = generalInfoResponse.general;
+                    currentSpriteFolder = generalInfoResponse.general.sprite; 
+                } else {
+                    currentCharacterSetupData = { ...data, rawPersonalityInput: data.personality };
+                    currentSpriteFolder = data.sprite; 
+                }
+                generatedPersonalityTextarea.value = result.characterProfile;
+                characterEditSection.style.display = 'block';
+            }
+        });
+
+        saveEditedPersonalityButton.addEventListener('click', async () => {
+            markUserInteraction();
+            const editedProfile = generatedPersonalityTextarea.value;
+            if (!editedProfile.trim()) {
+                displayError(errorMessages.characterEdit, 'Personality cannot be empty.');
+                return;
+            }
+            const result = await apiRequest('/api/personality', 'PATCH', { edit: editedProfile }, errorMessages.characterEdit);
+            if (result && result.characterProfile && !result.error) {
+                currentCharacterPersonalityText = result.characterProfile;
+                alert('Character profile updated!');
+                if (isCharacterProfileEditing) { 
+                    hideModal(optionsModal);
+                    isCharacterProfileEditing = false;
+                    // Need to reload game or specific parts if profile changes while in game
+                    await goToGameScreen(true); // Reload game screen with potentially new profile effects
+                } else {
+                    // This is part of initial setup flow
+                    characterEditSection.style.display = 'block'; 
+                }
+            }
+        });
+        
+        continueToGameButtonElement.addEventListener('click', async () => {
+            markUserInteraction();
+            if (!currentCharacterSetupData.name) { 
+                const formData = new FormData(forms.characterCreate);
+                currentCharacterSetupData.name = formData.get('name');
+                currentCharacterSetupData.looks = formData.get('looks');
+                currentCharacterSetupData.language = formData.get('language');
+                currentCharacterSetupData.sprite = formData.get('sprite');
+            }
+            if (!currentSpriteFolder && forms.characterCreate.sprite.value) {
+                currentSpriteFolder = forms.characterCreate.sprite.value;
+                if (currentCharacterSetupData) currentCharacterSetupData.sprite = currentSpriteFolder;
+            }
+            
+            if (!currentSpriteFolder) {
+                displayError(errorMessages.characterEdit, "Sprite folder is missing. Please fill the 'Sprite Folder To Use' field and generate/save the profile. Cannot continue.");
+                return;
+            }
+            await goToGameScreen(false); 
+        });
+
+        async function handleInteractionResponse(result) {
+            if (result && result.content) {
+                addMessageToDisplay('assistant', result.content);
+                if (result.sprite) {
+                    changeSprite(result.sprite);
+                }
+            } else {
+                const errorMessage = result?.error || "LLM interaction request failed or returned an invalid response.";
+                addMessageToDisplay('assistant', `Sorry, I had trouble responding. (${errorMessage})`);
+                if (!result?.error && errorMessages.gameScreen) {
+                    displayError(errorMessages.gameScreen, errorMessage);
+                }
+            }
+        }
+
+        sendMessageButton.addEventListener('click', async () => {
+            markUserInteraction();
+            const messageText = userMessageInput.value.trim();
+            if (!messageText && !selectedImageBase64) return;
+
+            addMessageToDisplay('user', messageText || "[Image]", selectedImageBase64); 
+            
+            const payload = { message: messageText };
+            if (selectedImageBase64) {
+                payload.image_data = selectedImageBase64;
             }
 
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                selectedImageBase64 = e.target.result;
-                imagePreview.src = selectedImageBase64;
-                imagePreviewContainer.style.display = 'flex';
-            };
-            reader.readAsDataURL(file);
+            userMessageInput.value = '';
+            removeImagePreview(); 
+            sendMessageButton.disabled = true;
+            attachImageButton.disabled = true;
+
+            const result = await apiRequest('/api/message', 'POST', payload, errorMessages.gameScreen);
+            
+            sendMessageButton.disabled = false;
+            if (visionSupportedByCurrentModel) attachImageButton.disabled = false;
+            handleInteractionResponse(result);
+        });
+        userMessageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) { 
+                e.preventDefault(); 
+                sendMessageButton.click(); 
+            }
+        });
+
+        performActionButton.addEventListener('click', async () => {
+            markUserInteraction();
+            const selectedAction = actionSelector.value;
+            if (!selectedAction) return;
+
+            performActionButton.disabled = true;
+            const result = await apiRequest(`/api/interact/${selectedAction}`, 'POST', {}, errorMessages.gameScreen);
+            performActionButton.disabled = false;
+            handleInteractionResponse(result);
+        });
+
+        attachImageButton.addEventListener('click', () => {
+            markUserInteraction();
+            imageUploadInput.click();
+        });
+
+        imageUploadInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                if (!['image/png', 'image/jpeg', 'image/gif', 'image/webp'].includes(file.type)) {
+                    alert('Invalid file type. Please select a PNG, JPG, GIF, or WEBP image.');
+                    imageUploadInput.value = ''; 
+                    return;
+                }
+                if (file.size > 7 * 1024 * 1024) { 
+                    alert('File is too large. Please select an image under 7MB.');
+                    imageUploadInput.value = '';
+                    return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    selectedImageBase64 = e.target.result;
+                    imagePreview.src = selectedImageBase64;
+                    imagePreviewContainer.style.display = 'flex';
+                };
+                reader.readAsDataURL(file);
+            }
+            imageUploadInput.value = '';
+        });
+
+        function removeImagePreview() {
+            selectedImageBase64 = null;
+            imagePreview.src = '#';
+            imagePreviewContainer.style.display = 'none';
+            imageUploadInput.value = '';
         }
-        imageUploadInput.value = '';
-    });
-
-    function removeImagePreview() {
-        selectedImageBase64 = null;
-        imagePreview.src = '#';
-        imagePreviewContainer.style.display = 'none';
-        imageUploadInput.value = '';
-    }
-    removeImagePreviewButton.addEventListener('click', removeImagePreview);
+        removeImagePreviewButton.addEventListener('click', removeImagePreview);
 
 
-    // --- Options Modal Logic ---
-    optionsButton.addEventListener('click', () => {
-        markUserInteraction();
-        supportsVisionCheckbox.checked = visionSupportedByCurrentModel; 
-        showModal(optionsModal);
-    });
-    closeOptionsModalButton.addEventListener('click', () => hideModal(optionsModal));
-    
-    supportsVisionCheckbox.addEventListener('change', async (event) => {
-        const newVisionSupportStatus = event.target.checked;
-        const result = await apiRequest('/api/config/vision', 'PATCH', { supports_vision: newVisionSupportStatus }, errorMessages.gameScreen);
-        
-        if (result && result.supports_vision !== undefined && !result.error) {
-            visionSupportedByCurrentModel = result.supports_vision;
-            apiKeySupportsVisionCheckbox.checked = visionSupportedByCurrentModel; 
-            toggleAttachButtonVisibility();
-            alert(`Vision support ${visionSupportedByCurrentModel ? 'enabled' : 'disabled'}.`);
-        } else {
+        // --- Options Modal Logic ---
+        optionsButton.addEventListener('click', () => {
+            markUserInteraction();
             supportsVisionCheckbox.checked = visionSupportedByCurrentModel; 
-            alert('Failed to update vision support setting.');
-        }
-    });
+            showModal(optionsModal);
+        });
+        closeOptionsModalButton.addEventListener('click', () => hideModal(optionsModal));
+        
+        supportsVisionCheckbox.addEventListener('change', async (event) => {
+            const newVisionSupportStatus = event.target.checked;
+            const result = await apiRequest('/api/config/vision', 'PATCH', { supports_vision: newVisionSupportStatus }, errorMessages.gameScreen);
+            
+            if (result && result.supports_vision !== undefined && !result.error) {
+                visionSupportedByCurrentModel = result.supports_vision;
+                apiKeySupportsVisionCheckbox.checked = visionSupportedByCurrentModel; 
+                toggleAttachButtonVisibility();
+                alert(`Vision support ${visionSupportedByCurrentModel ? 'enabled' : 'disabled'}.`);
+            } else {
+                supportsVisionCheckbox.checked = visionSupportedByCurrentModel; 
+                alert('Failed to update vision support setting.');
+            }
+        });
 
-    function closeModalOnClickOutside(event) {
-        if (event.target === optionsModal) {
+        function closeModalOnClickOutside(event) {
+            if (event.target === optionsModal) {
+                hideModal(optionsModal);
+            }
+            if (event.target === memoryViewerModal) {
+                hideModal(memoryViewerModal);
+            }
+            if (event.target === backgroundSelectorModal) { 
+                hideModal(backgroundSelectorModal);
+            }
+            if (event.target === musicSettingsModal) { 
+                hideModal(musicSettingsModal);
+            }
+        }
+        window.addEventListener('click', closeModalOnClickOutside);
+
+
+        optChangeApiKey.addEventListener('click', () => {
             hideModal(optionsModal);
-        }
-        if (event.target === memoryViewerModal) {
-            hideModal(memoryViewerModal);
-        }
-        if (event.target === backgroundSelectorModal) { 
-            hideModal(backgroundSelectorModal);
-        }
-        if (event.target === musicSettingsModal) { 
-            hideModal(musicSettingsModal);
-        }
-    }
-    window.addEventListener('click', closeModalOnClickOutside);
+            showScreen('apiKey');
+            forms.apiKey.reset(); 
+            apiKeySupportsVisionCheckbox.checked = visionSupportedByCurrentModel; 
+        });
 
-
-    optChangeApiKey.addEventListener('click', () => {
-        hideModal(optionsModal);
-        showScreen('apiKey');
-        forms.apiKey.reset(); 
-        apiKeySupportsVisionCheckbox.checked = visionSupportedByCurrentModel; 
-    });
-
-    optChangeUserData.addEventListener('click', () => {
-        hideModal(optionsModal);
-        isUserDataEditing = true;
-        userDataSubmitButton.textContent = 'Update User Data';
-        prefillUserDataForm(); 
-        showScreen('userData');
-    });
-    
-    optChangeCharProfile.addEventListener('click', () => {
-        hideModal(optionsModal);
-        isCharacterProfileEditing = true;
+        optChangeUserData.addEventListener('click', () => {
+            hideModal(optionsModal);
+            isUserDataEditing = true;
+            userDataSubmitButton.textContent = 'Update User Data';
+            prefillUserDataForm(); 
+            showScreen('userData');
+        });
         
-        if (currentCharacterSetupData) {
-            forms.characterCreate.name.value = currentCharacterSetupData.name || '';
-            forms.characterCreate.looks.value = currentCharacterSetupData.looks || '';
-            forms.characterCreate.personality.value = currentCharacterSetupData.rawPersonalityInput || ''; 
-            forms.characterCreate.language.value = currentCharacterSetupData.language || '';
-            forms.characterCreate.sprite.value = currentSpriteFolder || currentCharacterSetupData.sprite || '';
-        }
-        generatedPersonalityTextarea.value = currentCharacterPersonalityText || '';
-        
-        forms.characterCreate.style.display = 'none'; 
-        characterEditSection.style.display = 'block'; 
-        continueToGameButtonElement.style.display = 'none';
-
-        showScreen('characterSetup');
-    });
-
-    async function showMemory(type) {
-        const endpoint = type === 'shortTerm' ? '/api/memory/short_term' : '/api/memory/long_term';
-        const title = type === 'shortTerm' ? 'Chat History (Short-Term Memory)' : "Character's Diary (Long-Term Memory)";
-        
-        const data = await apiRequest(endpoint, 'GET', null, null); 
-        
-        memoryViewerTitle.textContent = title;
-        memoryViewerContent.innerHTML = ''; 
-
-        if (data && Array.isArray(data)) {
-            if (data.length === 0) {
-                memoryViewerContent.textContent = 'No entries found.';
-            } else {
-                const ul = document.createElement('ul');
-                ul.style.listStyleType = 'none';
-                ul.style.paddingLeft = '0';
-                data.forEach(entry => {
-                    const li = document.createElement('li');
-                    li.style.marginBottom = '10px';
-                    li.style.padding = '8px';
-                    li.style.border = '1px solid rgba(255,255,255,0.2)';
-                    li.style.borderRadius = '4px';
-                    
-                    let contentHTML = `<strong>${entry.role || 'Entry'} (${new Date(entry.timestamp).toLocaleString()}):</strong><br>`;
-                    if (entry.sprite) contentHTML += `(Sprite: ${entry.sprite})<br>`;
-                    
-                    const contentTextNode = document.createTextNode(entry.content);
-                    li.innerHTML = contentHTML; 
-                    li.appendChild(contentTextNode); 
-
-                    if (entry.image_data && type === 'shortTerm') { 
-                        const img = document.createElement('img');
-                        img.src = entry.image_data;
-                        img.alt = "User's image";
-                        img.classList.add('message-image-thumbnail'); 
-                        img.style.maxWidth = '150px'; 
-                        img.style.marginTop = '5px';
-                        li.appendChild(img);
-                    }
-                    ul.appendChild(li);
-                });
-                memoryViewerContent.appendChild(ul);
+        optChangeCharProfile.addEventListener('click', () => {
+            hideModal(optionsModal);
+            isCharacterProfileEditing = true;
+            
+            if (currentCharacterSetupData) {
+                forms.characterCreate.name.value = currentCharacterSetupData.name || '';
+                forms.characterCreate.looks.value = currentCharacterSetupData.looks || '';
+                forms.characterCreate.personality.value = currentCharacterSetupData.rawPersonalityInput || ''; 
+                forms.characterCreate.language.value = currentCharacterSetupData.language || '';
+                forms.characterCreate.sprite.value = currentSpriteFolder || currentCharacterSetupData.sprite || '';
             }
-        } else {
-            memoryViewerContent.textContent = `Failed to load ${type === 'shortTerm' ? 'chat history' : 'diary'}. ${data?.error || data?.message || 'Unknown error.'}`;
-        }
-        showModal(memoryViewerModal);
-    }
+            generatedPersonalityTextarea.value = currentCharacterPersonalityText || '';
+            
+            forms.characterCreate.style.display = 'none'; 
+            characterEditSection.style.display = 'block'; 
+            continueToGameButtonElement.style.display = 'none';
 
-    optViewShortTermMemory.addEventListener('click', () => {
-        hideModal(optionsModal);
-        showMemory('shortTerm');
-    });
-    
-    optViewLongTermMemory.addEventListener('click', () => {
-        hideModal(optionsModal);
-        showMemory('longTerm');
-    });
+            showScreen('characterSetup');
+        });
 
-    closeMemoryViewerModalButton.addEventListener('click', () => hideModal(memoryViewerModal));
+        async function showMemory(type) {
+            const endpoint = type === 'shortTerm' ? '/api/memory/short_term' : '/api/memory/long_term';
+            const title = type === 'shortTerm' ? 'Chat History (Short-Term Memory)' : "Character's Diary (Long-Term Memory)";
+            
+            const data = await apiRequest(endpoint, 'GET', null, null); 
+            
+            memoryViewerTitle.textContent = title;
+            memoryViewerContent.innerHTML = ''; 
 
-    optCreateBackupButton.addEventListener('click', async () => {
-        hideModal(optionsModal);
-        const result = await apiRequest('/api/backups/create', 'POST', {}, errorMessages.gameScreen); 
-        if (result && result.message && !result.error) {
-            alert(result.message);
-        } else {
-            alert(`Backup creation failed: ${result?.error || 'Unknown error'}`);
-        }
-    });
-
-    optRestoreCharacterButton.addEventListener('click', async () => {
-        hideModal(optionsModal);
-        const confirmRestore = confirm("Restoring a backup will overwrite the current character's data and chat history. Please make a backup of the current character first if needed. Continue?");
-        if (!confirmRestore) return;
-
-        const characterName = prompt("Enter the exact name of the character whose backup you want to restore:");
-        if (characterName === null) return; 
-        if (!characterName.trim()) {
-            alert("Character name cannot be empty.");
-            return;
-        }
-
-        const result = await apiRequest(`/api/backups/${characterName.trim()}`, 'GET', null, errorMessages.gameScreen);
-        if (result && result.message && !result.error) {
-            alert(result.message);
-            await initializeApp(); 
-        } else {
-            alert(`Failed to restore backup for "${characterName.trim()}": ${result?.error || 'Backup not found or error occurred.'}`);
-        }
-    });
-
-    optCreateNewCharacterButton.addEventListener('click', async () => {
-        hideModal(optionsModal);
-        const confirmCreateNew = confirm("This will delete the current character's profile, memories, and chat history. Make a backup first if you want to save the current character. Continue to create a new character?");
-        if (!confirmCreateNew) return;
-
-        const result = await apiRequest('/api/memory', 'DELETE', null, errorMessages.gameScreen);
-        if (result && result.success && !result.error) { 
-            alert('Current character data deleted. You will now be taken to the character creation screen.');
-            localStorage.removeItem(LAST_BACKGROUND_KEY); 
-            localStorage.removeItem(LAST_MUSIC_TRACK_KEY); 
-            localStorage.removeItem(LAST_MUSIC_VOLUME_KEY); 
-            bgMusicPlayer.pause(); 
-            bgMusicPlayer.src = ""; 
-            initialMusicPlayAttempted = false; 
-            userHasInteracted = false;
-
-
-            currentUserData = {}; 
-            currentCharacterPersonalityText = '';
-            currentCharacterSetupData = {};
-            currentSpriteFolder = '';
-            messageDisplay.innerHTML = ''; 
-            generatedPersonalityTextarea.value = ''; 
-            forms.characterCreate.reset(); 
-            characterEditSection.style.display = 'none';
-            forms.characterCreate.style.display = 'block';
-            continueToGameButtonElement.style.display = 'inline-block';
-            await initializeApp(); 
-        } else {
-            alert(`Failed to delete current character data: ${result?.error || 'Unknown error'}`);
-        }
-    });
-
-    // --- Background Change Logic ---
-    changeBackgroundButton.addEventListener('click', async () => {
-        markUserInteraction();
-        try {
-            displayError(errorMessages.gameScreen, ''); 
-            const backgrounds = await apiRequest('/api/backgrounds', 'GET', null, errorMessages.gameScreen); 
-            if (backgrounds && Array.isArray(backgrounds)) {
-                backgroundSelectorInput.innerHTML = ''; 
-                if (backgrounds.length === 0) {
-                    const option = document.createElement('option');
-                    option.textContent = 'No backgrounds found in assets/backgrounds';
-                    option.disabled = true;
-                    backgroundSelectorInput.appendChild(option);
-                    applyBackgroundButton.disabled = true;
+            if (data && Array.isArray(data)) {
+                if (data.length === 0) {
+                    memoryViewerContent.textContent = 'No entries found.';
                 } else {
-                    const lastBg = localStorage.getItem(LAST_BACKGROUND_KEY);
-                    backgrounds.forEach(bgFile => {
-                        const option = document.createElement('option');
-                        option.value = bgFile;
-                        option.textContent = bgFile.replace(/\.(png|jpe?g|gif|webp)$/i, '').replace(/_/g, ' ');
-                        if (bgFile === lastBg) {
-                            option.selected = true; 
+                    const ul = document.createElement('ul');
+                    ul.style.listStyleType = 'none';
+                    ul.style.paddingLeft = '0';
+                    data.forEach(entry => {
+                        const li = document.createElement('li');
+                        li.style.marginBottom = '10px';
+                        li.style.padding = '8px';
+                        li.style.border = '1px solid rgba(255,255,255,0.2)';
+                        li.style.borderRadius = '4px';
+                        
+                        let contentHTML = `<strong>${entry.role || 'Entry'} (${new Date(entry.timestamp).toLocaleString()}):</strong><br>`;
+                        if (entry.sprite) contentHTML += `(Sprite: ${entry.sprite})<br>`;
+                        
+                        const contentTextNode = document.createTextNode(entry.content);
+                        li.innerHTML = contentHTML; 
+                        li.appendChild(contentTextNode); 
+
+                        if (entry.image_data && type === 'shortTerm') { 
+                            const img = document.createElement('img');
+                            img.src = entry.image_data;
+                            img.alt = "User's image";
+                            img.classList.add('message-image-thumbnail'); 
+                            img.style.maxWidth = '150px'; 
+                            img.style.marginTop = '5px';
+                            li.appendChild(img);
                         }
+                        ul.appendChild(li);
+                    });
+                    memoryViewerContent.appendChild(ul);
+                }
+            } else {
+                memoryViewerContent.textContent = `Failed to load ${type === 'shortTerm' ? 'chat history' : 'diary'}. ${data?.error || data?.message || 'Unknown error.'}`;
+            }
+            showModal(memoryViewerModal);
+        }
+
+        optViewShortTermMemory.addEventListener('click', () => {
+            hideModal(optionsModal);
+            showMemory('shortTerm');
+        });
+        
+        optViewLongTermMemory.addEventListener('click', () => {
+            hideModal(optionsModal);
+            showMemory('longTerm');
+        });
+
+        closeMemoryViewerModalButton.addEventListener('click', () => hideModal(memoryViewerModal));
+
+        optCreateBackupButton.addEventListener('click', async () => {
+            hideModal(optionsModal);
+            const result = await apiRequest('/api/backups/create', 'POST', {}, errorMessages.gameScreen); 
+            if (result && result.message && !result.error) {
+                alert(result.message);
+            } else {
+                alert(`Backup creation failed: ${result?.error || 'Unknown error'}`);
+            }
+        });
+
+        optRestoreCharacterButton.addEventListener('click', async () => {
+            hideModal(optionsModal);
+            const confirmRestore = confirm("Restoring a backup will overwrite the current character's data and chat history. Please make a backup of the current character first if needed. Continue?");
+            if (!confirmRestore) return;
+
+            const characterName = prompt("Enter the exact name of the character whose backup you want to restore:");
+            if (characterName === null) return; 
+            if (!characterName.trim()) {
+                alert("Character name cannot be empty.");
+                return;
+            }
+
+            const result = await apiRequest(`/api/backups/${characterName.trim()}`, 'GET', null, errorMessages.gameScreen);
+            if (result && result.message && !result.error) {
+                alert(result.message);
+                await initializeApp(); 
+            } else {
+                alert(`Failed to restore backup for "${characterName.trim()}": ${result?.error || 'Backup not found or error occurred.'}`);
+            }
+        });
+
+        optCreateNewCharacterButton.addEventListener('click', async () => {
+            hideModal(optionsModal);
+            const confirmCreateNew = confirm("This will delete the current character's profile, memories, and chat history. Make a backup first if you want to save the current character. Continue to create a new character?");
+            if (!confirmCreateNew) return;
+
+            const result = await apiRequest('/api/memory', 'DELETE', null, errorMessages.gameScreen);
+            if (result && result.success && !result.error) { 
+                alert('Current character data deleted. You will now be taken to the character creation screen.');
+                localStorage.removeItem(LAST_BACKGROUND_KEY); 
+                localStorage.removeItem(LAST_MUSIC_TRACK_KEY); 
+                localStorage.removeItem(LAST_MUSIC_VOLUME_KEY); 
+                bgMusicPlayer.pause(); 
+                bgMusicPlayer.src = ""; 
+                initialMusicPlayAttempted = false; 
+                userHasInteracted = false;
+
+
+                currentUserData = {}; 
+                currentCharacterPersonalityText = '';
+                currentCharacterSetupData = {};
+                currentSpriteFolder = '';
+                messageDisplay.innerHTML = ''; 
+                generatedPersonalityTextarea.value = ''; 
+                forms.characterCreate.reset(); 
+                characterEditSection.style.display = 'none';
+                forms.characterCreate.style.display = 'block';
+                continueToGameButtonElement.style.display = 'inline-block';
+                await initializeApp(); 
+            } else {
+                alert(`Failed to delete current character data: ${result?.error || 'Unknown error'}`);
+            }
+        });
+
+        // --- Background Change Logic ---
+        changeBackgroundButton.addEventListener('click', async () => {
+            markUserInteraction();
+            try {
+                displayError(errorMessages.gameScreen, ''); 
+                const backgrounds = await apiRequest('/api/backgrounds', 'GET', null, errorMessages.gameScreen); 
+                if (backgrounds && Array.isArray(backgrounds)) {
+                    backgroundSelectorInput.innerHTML = ''; 
+                    if (backgrounds.length === 0) {
+                        const option = document.createElement('option');
+                        option.textContent = 'No backgrounds found in assets/backgrounds';
+                        option.disabled = true;
                         backgroundSelectorInput.appendChild(option);
-                    });
-                    applyBackgroundButton.disabled = false;
-                }
-                showModal(backgroundSelectorModal);
-            } else {
-                if (!errorMessages.gameScreen.textContent) { 
-                     displayError(errorMessages.gameScreen, backgrounds?.error || 'Failed to load backgrounds list.');
-                }
-            }
-        } catch (error) { 
-            displayError(errorMessages.gameScreen, 'Error trying to fetch backgrounds: ' + error.message);
-        }
-    });
-
-    applyBackgroundButton.addEventListener('click', async () => {
-        markUserInteraction();
-        const selectedBackgroundFile = backgroundSelectorInput.value;
-        if (!selectedBackgroundFile) {
-            alert('Please select a background from the list.');
-            return;
-        }
-
-        backgroundImage.src = `/assets/backgrounds/${selectedBackgroundFile}`;
-        localStorage.setItem(LAST_BACKGROUND_KEY, selectedBackgroundFile); 
-        hideModal(backgroundSelectorModal);
-        applyBackgroundButton.disabled = true; 
-
-        const payload = { backgroundName: selectedBackgroundFile };
-        const result = await apiRequest(`/api/interact/background_change`, 'POST', payload, errorMessages.gameScreen);
-        
-        applyBackgroundButton.disabled = false; 
-
-        handleInteractionResponse(result); 
-    });
-
-    closeBackgroundSelectorModalButton.addEventListener('click', () => {
-        hideModal(backgroundSelectorModal);
-    });
-
-    // --- Music Settings Logic ---
-    musicSettingsButton.addEventListener('click', async () => {
-        markUserInteraction();
-        try {
-            displayError(errorMessages.gameScreen, '');
-            const musicTracks = await apiRequest('/api/music', 'GET', null, errorMessages.gameScreen);
-            if (musicTracks && Array.isArray(musicTracks)) {
-                musicTrackSelector.innerHTML = '';
-                if (musicTracks.length === 0) {
-                    const option = document.createElement('option');
-                    option.textContent = 'No music found in assets/bg_music';
-                    option.disabled = true;
-                    musicTrackSelector.appendChild(option);
+                        applyBackgroundButton.disabled = true;
+                    } else {
+                        const lastBg = localStorage.getItem(LAST_BACKGROUND_KEY);
+                        backgrounds.forEach(bgFile => {
+                            const option = document.createElement('option');
+                            option.value = bgFile;
+                            option.textContent = bgFile.replace(/\.(png|jpe?g|gif|webp)$/i, '').replace(/_/g, ' ');
+                            if (bgFile === lastBg) {
+                                option.selected = true; 
+                            }
+                            backgroundSelectorInput.appendChild(option);
+                        });
+                        applyBackgroundButton.disabled = false;
+                    }
+                    showModal(backgroundSelectorModal);
                 } else {
-                    const currentTrack = localStorage.getItem(LAST_MUSIC_TRACK_KEY) || DEFAULT_MUSIC_TRACK;
-                    musicTracks.forEach(trackFile => {
+                    if (!errorMessages.gameScreen.textContent) { 
+                        displayError(errorMessages.gameScreen, backgrounds?.error || 'Failed to load backgrounds list.');
+                    }
+                }
+            } catch (error) { 
+                displayError(errorMessages.gameScreen, 'Error trying to fetch backgrounds: ' + error.message);
+            }
+        });
+
+        applyBackgroundButton.addEventListener('click', async () => {
+            markUserInteraction();
+            const selectedBackgroundFile = backgroundSelectorInput.value;
+            if (!selectedBackgroundFile) {
+                alert('Please select a background from the list.');
+                return;
+            }
+
+            backgroundImage.src = `/assets/backgrounds/${selectedBackgroundFile}`;
+            localStorage.setItem(LAST_BACKGROUND_KEY, selectedBackgroundFile); 
+            hideModal(backgroundSelectorModal);
+            applyBackgroundButton.disabled = true; 
+
+            const payload = { backgroundName: selectedBackgroundFile };
+            const result = await apiRequest(`/api/interact/background_change`, 'POST', payload, errorMessages.gameScreen);
+            
+            applyBackgroundButton.disabled = false; 
+
+            handleInteractionResponse(result); 
+        });
+
+        closeBackgroundSelectorModalButton.addEventListener('click', () => {
+            hideModal(backgroundSelectorModal);
+        });
+
+        // --- Music Settings Logic ---
+        musicSettingsButton.addEventListener('click', async () => {
+            markUserInteraction();
+            try {
+                displayError(errorMessages.gameScreen, '');
+                const musicTracks = await apiRequest('/api/music', 'GET', null, errorMessages.gameScreen);
+                if (musicTracks && Array.isArray(musicTracks)) {
+                    musicTrackSelector.innerHTML = '';
+                    if (musicTracks.length === 0) {
                         const option = document.createElement('option');
-                        option.value = trackFile;
-                        option.textContent = trackFile.replace(/\.(mp3|wav|ogg)$/i, '').replace(/_/g, ' ');
-                        if (trackFile === currentTrack) {
-                            option.selected = true;
-                        }
+                        option.textContent = 'No music found in assets/bg_music';
+                        option.disabled = true;
                         musicTrackSelector.appendChild(option);
-                    });
+                    } else {
+                        const currentTrack = localStorage.getItem(LAST_MUSIC_TRACK_KEY) || DEFAULT_MUSIC_TRACK;
+                        musicTracks.forEach(trackFile => {
+                            const option = document.createElement('option');
+                            option.value = trackFile;
+                            option.textContent = trackFile.replace(/\.(mp3|wav|ogg)$/i, '').replace(/_/g, ' ');
+                            if (trackFile === currentTrack) {
+                                option.selected = true;
+                            }
+                            musicTrackSelector.appendChild(option);
+                        });
+                    }
+                    musicVolumeSlider.value = bgMusicPlayer.volume; 
+                    showModal(musicSettingsModal);
+                } else {
+                    if (!errorMessages.gameScreen.textContent) { 
+                        displayError(errorMessages.gameScreen, musicTracks?.error || 'Failed to load music list.');
+                    }
                 }
-                musicVolumeSlider.value = bgMusicPlayer.volume; 
-                showModal(musicSettingsModal);
-            } else {
-                 if (!errorMessages.gameScreen.textContent) { 
-                     displayError(errorMessages.gameScreen, musicTracks?.error || 'Failed to load music list.');
+            } catch (error) {
+                displayError(errorMessages.gameScreen, 'Error trying to fetch music list: ' + error.message);
+            }
+        });
+
+        musicTrackSelector.addEventListener('change', () => {
+            const selectedTrack = musicTrackSelector.value;
+            if (selectedTrack) {
+                playMusic(selectedTrack, bgMusicPlayer.volume); 
+                localStorage.setItem(LAST_MUSIC_TRACK_KEY, selectedTrack);
+            }
+        });
+
+        musicVolumeSlider.addEventListener('input', () => { 
+            const newVolume = parseFloat(musicVolumeSlider.value);
+            bgMusicPlayer.volume = newVolume;
+            localStorage.setItem(LAST_MUSIC_VOLUME_KEY, newVolume.toString());
+        });
+
+        closeMusicSettingsModalButton.addEventListener('click', () => {
+            hideModal(musicSettingsModal);
+        });
+
+        // Modding folder button listener
+        if (optOpenModdingFolderButton) {
+            optOpenModdingFolderButton.addEventListener('click', () => {
+                markUserInteraction(); 
+                if (window.electronAPI && typeof window.electronAPI.openModdingFolder === 'function') {
+                    window.electronAPI.openModdingFolder();
+                } else {
+                    console.error('electronAPI.openModdingFolder is not available. Ensure preload script is correctly configured.');
+                    alert('Error: Could not open modding folder. This feature may not be available.');
                 }
-            }
-        } catch (error) {
-            displayError(errorMessages.gameScreen, 'Error trying to fetch music list: ' + error.message);
+                hideModal(optionsModal); 
+            });
         }
-    });
+    }
 
-    musicTrackSelector.addEventListener('change', () => {
-        const selectedTrack = musicTrackSelector.value;
-        if (selectedTrack) {
-            playMusic(selectedTrack, bgMusicPlayer.volume); 
-            localStorage.setItem(LAST_MUSIC_TRACK_KEY, selectedTrack);
-        }
-    });
 
-    musicVolumeSlider.addEventListener('input', () => { 
-        const newVolume = parseFloat(musicVolumeSlider.value);
-        bgMusicPlayer.volume = newVolume;
-        localStorage.setItem(LAST_MUSIC_VOLUME_KEY, newVolume.toString());
-    });
+    // --- Splash Screen Animation and App Initialization ---
+    if (splashScreenElement && appContainerElement) {
+        const FADE_IN_DURATION = 500;  // 1 second
+        const HOLD_DURATION = 2000;  // 1 second (app initialization happens here)
+        const FADE_OUT_DURATION = 1000; // 1 second
 
-    closeMusicSettingsModalButton.addEventListener('click', () => {
-        hideModal(musicSettingsModal);
-    });
+        // Start splash screen fade-in (from opacity 0 to 1)
+        setTimeout(() => { // Ensures CSS transition applies correctly
+            splashScreenElement.style.opacity = '1';
+        }, 50); // Small delay
 
-    // Modding folder button listener
-    if (optOpenModdingFolderButton) {
-        optOpenModdingFolderButton.addEventListener('click', () => {
-            markUserInteraction(); // Good practice if it might trigger audio/focus changes
-            if (window.electronAPI && typeof window.electronAPI.openModdingFolder === 'function') {
-                window.electronAPI.openModdingFolder();
-            } else {
-                console.error('electronAPI.openModdingFolder is not available. Ensure preload script is correctly configured.');
-                alert('Error: Could not open modding folder. This feature may not be available.');
-            }
-            hideModal(optionsModal); // Optionally hide the modal
+        // Prepare app initialization
+        const appInitializationPromise = initializeApp();
+        
+        // Attach event listeners once DOM is ready for them (they are passive until interaction)
+        attachEventListeners();
+
+        // Wait for both app initialization AND minimum splash hold time to complete
+        Promise.all([
+            appInitializationPromise,
+            new Promise(resolve => setTimeout(resolve, FADE_IN_DURATION + HOLD_DURATION)) // Min total display time before fadeout
+        ]).then(() => {
+            // Now start fading out the splash screen
+            splashScreenElement.style.opacity = '0';
+
+            // After fade-out animation completes, hide splash and show app
+            setTimeout(() => {
+                splashScreenElement.style.display = 'none';
+                appContainerElement.style.display = 'block'; 
+                // initializeApp() has already called showScreen(), which set the correct
+                // body background and displayed the initial app screen.
+            }, FADE_OUT_DURATION);
+        }).catch(error => {
+            console.error("Error during app initialization or splash sequence:", error);
+            // Fallback: Ensure splash is removed and app container is visible
+            // even if there was an error, so user isn't stuck on splash.
+            // initializeApp should handle displaying specific error messages/screens.
+            splashScreenElement.style.opacity = '0'; // Try to fade out
+             setTimeout(() => {
+                splashScreenElement.style.display = 'none';
+                appContainerElement.style.display = 'block';
+            }, FADE_OUT_DURATION);
+        });
+
+    } else {
+        // Fallback if splash screen elements are not found
+        console.warn("Splash screen element or app container not found. Initializing app directly.");
+        if(appContainerElement) appContainerElement.style.display = 'block';
+        // Directly initialize and set body background based on the first screen
+        initializeApp().then(() => {
+            attachEventListeners();
+            // If initializeApp determined a screen, showScreen would have set the body bg.
+            // If not, and we want a default, set it here. But initializeApp *should* show a screen.
+        }).catch(error => {
+            console.error("Error during direct app initialization:", error);
+            // Potentially set a default body background for error states
+            document.body.style.backgroundColor = '#FFC5D3'; // Or a neutral error color
         });
     }
-
-    // --- Initial Setup ---
-    initializeApp();
 });

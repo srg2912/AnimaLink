@@ -1,7 +1,7 @@
 body {
     font-family: sans-serif;
     margin: 0;
-    background-color: #FFC5D3; /* Pastel Pink */
+    background-color: #000000; /* Default to black */
     color: #333; 
     display: flex;
     justify-content: center;
@@ -11,12 +11,36 @@ body {
     overflow: hidden; 
 }
 
+/* Splash Screen Styles */
+#splash-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: black; /* Explicitly black, though body is also black */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    opacity: 0; 
+    transition: opacity 1s ease-in-out; 
+}
+
+#splash-logo {
+    max-width: 70%; 
+    max-height: 70%; 
+    object-fit: contain;
+}
+
+
 #app-container {
     width: 100%;
     max-width: 800px;
     padding: 20px;
     border-radius: 8px;
     box-sizing: border-box;
+    /* display: none; will be handled by JS or inline style */
 }
 
 .screen {

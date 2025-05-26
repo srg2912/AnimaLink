@@ -1,6 +1,6 @@
 import { app, BrowserWindow, ipcMain, shell, screen } from 'electron'; // Added screen module
 import path from 'path';
-import fs from 'fs';
+import fs from 'fs'; // For synchronous file operations
 import { fileURLToPath } from 'url';
 import { fork } from 'child_process';
 
@@ -9,7 +9,7 @@ const __dirname = path.dirname(__filename);
 
 let expressAppProcess;
 let mainWindow;
-let userDataPath;
+let userDataPath; // Will store app.getPath('userData')
 
 // Function to create necessary directories in userData
 function ensureUserDataDirectories(basePath) {
@@ -52,7 +52,7 @@ function copyDefaultAssets(sourceAssetsPath, targetUserDataAssetsPath) {
                     console.log(`Created target asset directory: ${targetDir}`);
                 } catch (error) {
                      console.error(`Failed to create target asset directory ${targetDir}:`, error);
-                     return;
+                     return; // Skip copying for this asset type if dir creation fails
                 }
             }
             
@@ -90,13 +90,13 @@ function startExpressApp() {
         const env = { ...process.env, USER_DATA_PATH: userDataPath, NODE_ENV: process.env.NODE_ENV };
         expressAppProcess = fork(path.join(__dirname, 'app.mjs'), [], {
             env: env,
-            silent: false
+            silent: false 
         });
 
         expressAppProcess.on('message', (msg) => {
             if (msg === 'server-started') {
                 console.log('Express server reported as started.');
-                clearTimeout(serverStartTimeout);
+                clearTimeout(serverStartTimeout); 
                 resolve();
             }
         });
@@ -105,37 +105,34 @@ function startExpressApp() {
             console.error('Failed to start Express app:', err);
             clearTimeout(serverStartTimeout);
             reject(err);
-            // app.quit(); // Consider if app should quit or try to inform user
         });
 
         expressAppProcess.on('exit', (code, signal) => {
             console.log(`Express app exited with code ${code} and signal ${signal}`);
-            // Optionally handle unexpected exits
         });
         
-        // Fallback timeout if 'server-started' message isn't received
         const serverStartTimeout = setTimeout(() => {
             console.warn('Express server start timeout. Assuming it started (or failed silently).');
-            resolve();
-        }, 7000);
+            resolve(); 
+        }, 7000); 
     });
 }
 
 function createWindow () {
-  // Get primary display's work area dimensions
   const primaryDisplay = screen.getPrimaryDisplay();
-  const { width, height } = primaryDisplay.workAreaSize; // workAreaSize excludes taskbars, docks, etc.
+  const { width, height } = primaryDisplay.workAreaSize;
 
   console.log(`Detected screen work area: width=${width}, height=${height}`);
 
   mainWindow = new BrowserWindow({
-    width: width,
-    height: height,
-    icon: path.join(__dirname, 'assets', 'icons', 'icon.png'),
+    width: width, 
+    height: height, 
+    icon: path.join(__dirname, 'assets', 'icons', 'icon.png'), 
+    backgroundColor: '#000000', // Set window background to black
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      preload: path.join(__dirname, 'src', 'preload.mjs')
+      preload: path.join(__dirname, 'src', 'preload.mjs') 
     },
     autoHideMenuBar: true
   });
@@ -171,7 +168,7 @@ app.whenReady().then(async () => {
     createWindow();
   } catch (error) {
     console.error("Error during app startup:", error);
-    app.quit();
+    app.quit(); 
     return;
   }
 
@@ -200,11 +197,10 @@ app.on('quit', () => {
   console.log('Electron app is quitting...');
   if (expressAppProcess && !expressAppProcess.killed) {
     console.log('Killing Express app process...');
-    expressAppProcess.kill('SIGINT');
+    expressAppProcess.kill('SIGINT'); 
   }
 });
 
-// IPC Handler to open the modding folder (assets within userData)
 ipcMain.on('open-modding-folder', () => {
     const moddingFolderPath = path.join(userDataPath, 'assets');
     console.log(`Opening modding folder: ${moddingFolderPath}`);
