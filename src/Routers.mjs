@@ -40,7 +40,6 @@ export default function createRouter(userDataPath) { // Accept userDataPath
         const jsonData = JSON.stringify(configData, null, 2);
         await updateTextFile(jsonData, USER_CONFIG_PATH, 'w');
         
-        // Force reinitialization of LLM client with new settings
         const reinitialized = reloadConfigAndReinitializeClient(); 
         if (!reinitialized) {
             console.warn("API Key saved, but LLM client failed to re-initialize immediately. It might on next request or needs app restart if path was an issue.");
@@ -69,7 +68,6 @@ export default function createRouter(userDataPath) { // Accept userDataPath
 
         try {
             let currentConfig = {};
-            // USER_CONFIG_PATH is already the correct userData-based path
             if (fsSync.existsSync(USER_CONFIG_PATH)) {
                 const configFileContent = await readTextFile(USER_CONFIG_PATH);
                 if (configFileContent && configFileContent.trim() !== '') {
@@ -79,19 +77,18 @@ export default function createRouter(userDataPath) { // Accept userDataPath
                  console.warn(`Config file ${USER_CONFIG_PATH} not found during vision update, will create.`);
             }
             
-            // Ensure all core fields exist, even if null, before saving
             currentConfig = {
                 model: currentConfig.model || null,
                 key: currentConfig.key || null,
                 base_url: currentConfig.base_url || null,
-                ...currentConfig, // Spread last to override defaults with existing values
+                ...currentConfig, 
                 supports_vision: supports_vision
             };
 
             const jsonData = JSON.stringify(currentConfig, null, 2);
             await updateTextFile(jsonData, USER_CONFIG_PATH, 'w');
             
-            reloadConfigAndReinitializeClient(); // Reload to apply changes
+            reloadConfigAndReinitializeClient(); 
 
             res.status(200).json({ message: 'Vision support updated successfully.', supports_vision: supports_vision });
 
@@ -188,7 +185,7 @@ export default function createRouter(userDataPath) { // Accept userDataPath
     // DELETE Request to delete user's data
     router.delete('/api/user_data', async (req, res) => {
         try {
-        await updateTextFile('{}', USER_DATA_PATH, 'w'); // Write empty JSON object
+        await updateTextFile('{}', USER_DATA_PATH, 'w'); 
         res.status(204).json({ message: 'Data deleted succesfully.' });
       } catch (e) {
         console.error(e);
@@ -202,7 +199,6 @@ export default function createRouter(userDataPath) { // Accept userDataPath
       
       if (!name || !personality || !looks || !language || !sprite) return res.status(400).json({ error: 'One or more fields are empty.' });
       
-      // Validate sprite folder existence
       const characterSpritePath = path.join(ASSETS_SPRITES_BASE_PATH, sprite);
       if (!fsSync.existsSync(characterSpritePath)) {
           return res.status(400).json({ error: `Sprite folder '${sprite}' does not exist in user's assets/sprites directory.` });
@@ -278,7 +274,7 @@ export default function createRouter(userDataPath) { // Accept userDataPath
             return res.status(400).json({ error: `Character's sprite folder '${general.sprite}' is missing.` });
         }
         const spritesString = await readSpriteFolderContents(characterSpritePath);
-        if (!spritesString && spritesString !== "") { // Empty string is a valid return if folder is empty
+        if (!spritesString && spritesString !== "") { 
              console.error(`Could not read sprite folder contents for ${characterSpritePath}`);
              return res.status(500).json({ error: `Could not read contents of sprite folder '${general.sprite}'.` });
         }
@@ -288,7 +284,7 @@ export default function createRouter(userDataPath) { // Accept userDataPath
 
         const spritePrompt = generateSpritePrompt (result, spritesString); 
         const chosenSprite = await ask_LLM(spritePrompt); 
-        const validSprite = await pickValidSprite(chosenSprite, characterSpritePath); // pickValidSprite needs full path
+        const validSprite = await pickValidSprite(chosenSprite, characterSpritePath); 
         
         const lastId = previousMessages[previousMessages.length - 1]?.id ?? 0;
         
@@ -309,7 +305,6 @@ export default function createRouter(userDataPath) { // Accept userDataPath
         previousMessages.push(userMessageEntry, assistantMessageEntry);
         await updateMemoryFile(SHORT_TERM_MEMORY_PATH, previousMessages);
 
-        // Diary and Backup logic
         if (assistantMessageEntry.id % 20 === 0) {
           try {
             const diaryPrompt = generateDiaryPrompt(personality);
@@ -335,7 +330,6 @@ export default function createRouter(userDataPath) { // Accept userDataPath
             const longTermData = JSON.parse(await readTextFile(LONG_TERM_MEMORY_PATH));
             const personalityData = await readTextFile(PERSONALITY_PATH);
             const backupObject = { general: generalDataForBackup, shortTerm: shortTermData, longTerm: longTermData, personality: personalityData };
-            // Ensure backup name is filesystem-safe
             const safeBackupName = (generalDataForBackup.name || 'character').replace(/[^a-z0-9_.-]/gi, '_');
             await updateMemoryFile(path.join(BACKUPS_DIR_PATH, `${safeBackupName}_backup.json`), backupObject);
           } catch (error) {
@@ -352,15 +346,13 @@ export default function createRouter(userDataPath) { // Accept userDataPath
 
     // POST Request to interact with the character
     router.post('/api/interact/:interaction_type', async (req, res) => {
-      // ... (similar logic as /api/message for paths and sprite handling)
         const interactionType = req.params.interaction_type;
         const { backgroundName } = req.body; 
 
         if (!interactionType) return res.status(400).json({ error: 'Interaction type not specified.' })
         
-        let interactionMessage = '';
-        let userInteractionLogMessage = `System: User interacted by '${interactionType.replace(/_/g, ' ')}'.`;
-
+        let interactionMessage = ''; // This will be the text part of the prompt to LLM
+        let userInteractionLogMessage = `System: User interacted by '${interactionType.replace(/_/g, ' ')}'.`; // For short-term memory
 
         if (interactionType === 'hug') {
           interactionMessage = 'System Message: The user hugged your sprite.';
@@ -388,7 +380,6 @@ export default function createRouter(userDataPath) { // Accept userDataPath
           interactionMessage = `System: The user took you to ${cleanBackgroundName}.`;
           userInteractionLogMessage = `System: User changed background to ${backgroundName}.`; 
         } else {
-          // Fallback for any other interaction_type passed as a URL param, assuming it's a body part
           interactionMessage = `System Message: The user stroke your ${interactionType.replace(/_/g, ' ')} by interacting with your sprite.`;
         };
 
@@ -404,9 +395,42 @@ export default function createRouter(userDataPath) { // Accept userDataPath
 
         const instruction = generateInstructionPrompt (personality, user_data); 
         const previousEntries = await readMemoryFile(LONG_TERM_MEMORY_PATH);
+        
+        let llmPromptContent = interactionMessage; // Default to text-only prompt
+
+        if (interactionType === 'background_change' && backgroundName) {
+            const visionSupported = getVisionSupportStatus();
+            if (visionSupported) {
+                const backgroundFilePath = path.join(ASSETS_BACKGROUNDS_PATH, backgroundName);
+                try {
+                    const imageBuffer = await fsPromises.readFile(backgroundFilePath);
+                    const base64ImageData = imageBuffer.toString('base64');
+                    const ext = path.extname(backgroundName).slice(1).toLowerCase(); // e.g., 'png', 'jpg'
+                    
+                    let mimeType = '';
+                    if (ext === 'jpg' || ext === 'jpeg') mimeType = 'image/jpeg';
+                    else if (ext === 'png') mimeType = 'image/png';
+                    else if (ext === 'gif') mimeType = 'image/gif';
+                    else if (ext === 'webp') mimeType = 'image/webp';
+
+                    if (mimeType) {
+                        llmPromptContent = [
+                            { type: "text", text: interactionMessage }, // The "System: The user took you to..."
+                            { type: "image_url", image_url: { url: `data:${mimeType};base64,${base64ImageData}` } }
+                        ];
+                        console.log(`Background change: Sending image ${backgroundName} to LLM as vision is supported.`);
+                    } else {
+                        console.warn(`Unsupported image type for vision: ${ext} for background ${backgroundName}. Sending text only.`);
+                    }
+                } catch (imgError) {
+                    console.error(`Error reading background image ${backgroundName} for vision: ${imgError.message}. Sending text only.`);
+                    // llmPromptContent remains the text-only interactionMessage
+                }
+            }
+        }
 
         try {
-          const result = await ask_LLM(interactionMessage, instruction, previousMessages, previousEntries);
+          const result = await ask_LLM(llmPromptContent, instruction, previousMessages, previousEntries);
           const generalString = await readTextFile(GENERAL_MEMORY_PATH);
           if(!generalString) return res.status(400).json({ error: "Character general info not found."});
           const general = JSON.parse(generalString);
@@ -431,8 +455,9 @@ export default function createRouter(userDataPath) { // Accept userDataPath
           const userMessageEntry = { 
             id: lastId + 1,
             role: 'user', 
-            content: userInteractionLogMessage, 
+            content: userInteractionLogMessage, // This is the simple text log for memory
             timestamp: new Date().toISOString()
+            // No image_data here for the log entry itself for background change
           };
           const assistantMessageEntry = {
             id: lastId + 2,
@@ -444,7 +469,6 @@ export default function createRouter(userDataPath) { // Accept userDataPath
           previousMessages.push(userMessageEntry, assistantMessageEntry);
           await updateMemoryFile(SHORT_TERM_MEMORY_PATH, previousMessages);
 
-          // Diary and Backup logic (same as above)
            if (assistantMessageEntry.id % 20 === 0) { 
             try {
               const diaryPrompt = generateDiaryPrompt(personality);
@@ -526,12 +550,11 @@ export default function createRouter(userDataPath) { // Accept userDataPath
         try {
             if (!fsSync.existsSync(BACKUPS_DIR_PATH)) {
                 console.warn(`Backups directory not found: ${BACKUPS_DIR_PATH}`);
-                return res.status(200).json([]); // Return empty if dir doesn't exist
+                return res.status(200).json([]); 
             }
-            const allFiles = listFilesInDirectory(BACKUPS_DIR_PATH); // Assuming listFilesInDirectory is synchronous
+            const allFiles = listFilesInDirectory(BACKUPS_DIR_PATH); 
             const backupFiles = allFiles.filter(file => file.endsWith('_backup.json'));
             
-            // Extract character names from filenames for display
             const backupInfos = backupFiles.map(file => {
                 const characterName = file.replace('_backup.json', '');
                 return { fileName: file, characterName: characterName };
@@ -545,16 +568,16 @@ export default function createRouter(userDataPath) { // Accept userDataPath
 
     // GET Request to retrieve data from backup
     router.get('/api/backups/:name', async (req, res) => {
-        const characterNameFromRequest = req.params.name; // This should be the 'characterName' part
+        const characterNameFromRequest = req.params.name; 
       if (!characterNameFromRequest) return res.status(400).json({ error: 'Bad request: Character name for backup not provided.' });
       
-      const safeName = characterNameFromRequest.replace(/[^a-z0-9_.-]/gi, '_'); // Sanitize if needed, though it should be from our list
+      const safeName = characterNameFromRequest.replace(/[^a-z0-9_.-]/gi, '_'); 
       const backupFileName = `${safeName}_backup.json`;
       const backupFilePath = path.join(BACKUPS_DIR_PATH, backupFileName);
 
       try {
         const backupRaw = await readTextFile(backupFilePath);
-        if (!backupRaw) { // readTextFile returns undefined on ENOENT
+        if (!backupRaw) { 
              console.error(`Backup file not found: ${backupFilePath}`);
              return res.status(404).json({ error: `Backup for '${characterNameFromRequest}' not found.` });
         }
@@ -580,7 +603,6 @@ export default function createRouter(userDataPath) { // Accept userDataPath
         if (error instanceof SyntaxError) { 
             return res.status(400).json({ error: `Backup file for '${characterNameFromRequest}' is invalid JSON.` });
         }
-        // readTextFile handles ENOENT by returning undefined, caught above.
         res.status(500).json({ error: `Failed to restore backup for '${characterNameFromRequest}'. ${error.message}` });
       }
     });
@@ -607,7 +629,6 @@ export default function createRouter(userDataPath) { // Accept userDataPath
       }
     });
 
-    // GET Request to retrieve user's data
     router.get('/api/user_data', async (req, res) => {
         try {
         const userDataString = await readTextFile(USER_DATA_PATH);
@@ -615,8 +636,6 @@ export default function createRouter(userDataPath) { // Accept userDataPath
             return res.status(404).json({ error: 'User data not found.' });
         }
         const userData = JSON.parse(userDataString);
-        if (!userData.name || !userData.gender || !userData.pronouns) {
-        }
         res.status(200).json(userData);
       } catch (error) {
         if (error.code === 'ENOENT') {
@@ -636,18 +655,8 @@ export default function createRouter(userDataPath) { // Accept userDataPath
         if ((!personalityText || personalityText.trim() === '') && (!generalJsonString || generalJsonString.trim() === '{}' || generalJsonString.trim() === '')) {
              return res.status(404).json({ error: 'Character profile and general info not found.' });
         }
-        if (!personalityText || personalityText.trim() === '') {
-            // return res.status(404).json({ error: 'Character personality not found.' });
-            // Allow partial, client handles setup flow
-        }
-        if (!generalJsonString || generalJsonString.trim() === '{}' || generalJsonString.trim() === '') {
-            // return res.status(404).json({ error: 'Character general info not found.' });
-        }
         
         const generalData = (generalJsonString && generalJsonString.trim() !== '{}' && generalJsonString.trim() !== '') ? JSON.parse(generalJsonString) : {};
-        if (!generalData.name || !generalData.sprite) {
-            // return res.status(404).json({ error: 'Character general info incomplete (name or sprite folder missing).' });
-        }
 
         res.status(200).json({ 
             profile: personalityText || "", 
@@ -665,10 +674,9 @@ export default function createRouter(userDataPath) { // Accept userDataPath
     // GET Request to get list of available backgrounds
     router.get('/api/backgrounds', (req, res) => {
       try {
-        // listFilesInDirectory is synchronous from Get_Images.mjs
         if (!fsSync.existsSync(ASSETS_BACKGROUNDS_PATH)) {
             console.warn(`Backgrounds directory not found: ${ASSETS_BACKGROUNDS_PATH}`);
-            return res.status(200).json([]); // Return empty if dir doesn't exist
+            return res.status(200).json([]); 
         }
         const allFiles = listFilesInDirectory(ASSETS_BACKGROUNDS_PATH);
         const imageFiles = allFiles.filter(file => /\.(png|jpe?g|gif|webp)$/i.test(file));
@@ -724,7 +732,7 @@ export default function createRouter(userDataPath) { // Accept userDataPath
             res.status(201).json({ message: `Backup for ${safeBackupName} created successfully.`, filePath: backupFilePath });
         } catch (error) {
             console.error('Error during manual backup creation: ', error);
-            if (error.code === 'ENOENT') { // If a memory file is missing
+            if (error.code === 'ENOENT') { 
                 return res.status(500).json({ error: 'Failed to create backup: A required memory file is missing.' });
             }
             res.status(500).json({ error: 'Failed to create backup.' });
