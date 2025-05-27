@@ -705,21 +705,44 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         window.addEventListener('click', closeModalOnClickOutside);
 
-        optChangeApiKey.addEventListener('click', () => {
+        optChangeApiKey.addEventListener('click', async () => {
             hideModal(optionsModal);
             showScreen('apiKey');
-            forms.apiKey.reset(); 
+            forms.apiKey.reset();
+
             const apiKeyModelInput = document.getElementById('model');
             const apiKeyKeyInput = document.getElementById('key');
             const apiKeyEndpointInput = document.getElementById('endpoint');
-            
-            if(apiKeyModelInput) apiKeyModelInput.value = '';
-            if(apiKeyKeyInput) apiKeyKeyInput.value = '';
-            if(apiKeyEndpointInput) apiKeyEndpointInput.value = '';
 
-            apiKeySupportsVisionCheckbox.checked = visionSupportedByCurrentModel; 
+            try {
+                // Fetch current API key configuration
+                const currentApiKeyConfig = await apiRequest('/api/api_key_data', 'GET', null, errorMessages.apiKey, true);
+
+                if (currentApiKeyConfig && !currentApiKeyConfig.error && !currentApiKeyConfig.notFound) {
+                    // Pre-fill the form with fetched data
+                    if (apiKeyModelInput) apiKeyModelInput.value = currentApiKeyConfig.model || '';
+                    if (apiKeyKeyInput) apiKeyKeyInput.value = currentApiKeyConfig.key || '';
+                    if (apiKeyEndpointInput) apiKeyEndpointInput.value = currentApiKeyConfig.base_url || '';
+                    apiKeySupportsVisionCheckbox.checked = currentApiKeyConfig.supports_vision !== undefined 
+                        ? currentApiKeyConfig.supports_vision 
+                        : visionSupportedByCurrentModel;
+
+                } else if (currentApiKeyConfig && (currentApiKeyConfig.error || currentApiKeyConfig.notFound)) {
+                    console.warn("Could not pre-fill API key form. Config not found or error:", currentApiKeyConfig.error || "Not found");
+                    if (apiKeyModelInput) apiKeyModelInput.value = '';
+                    if (apiKeyKeyInput) apiKeyKeyInput.value = '';
+                    if (apiKeyEndpointInput) apiKeyEndpointInput.value = '';
+                    apiKeySupportsVisionCheckbox.checked = visionSupportedByCurrentModel; // Fallback to global state
+                }
+            } catch (error) {
+                console.error("Error fetching API key data for pre-fill:", error);
+                displayError(errorMessages.apiKey, "Could not load current API key settings to pre-fill the form.");
+                if (apiKeyModelInput) apiKeyModelInput.value = '';
+                if (apiKeyKeyInput) apiKeyKeyInput.value = '';
+                if (apiKeyEndpointInput) apiKeyEndpointInput.value = '';
+                apiKeySupportsVisionCheckbox.checked = visionSupportedByCurrentModel; // Fallback
+            }
         });
-
         optChangeUserData.addEventListener('click', () => {
             hideModal(optionsModal);
             isUserDataEditing = true;

@@ -96,6 +96,37 @@ export default function createRouter(userDataPath) { // Accept userDataPath
         }
     });
 
+    // GET Request to retrieve current API key data for pre-filling form
+    router.get('/api/api_key_data', async (req, res) => {
+        try {
+            if (fsSync.existsSync(USER_CONFIG_PATH)) {
+                const configFileContent = await readTextFile(USER_CONFIG_PATH);
+                if (configFileContent && configFileContent.trim() !== '') {
+                    const configData = JSON.parse(configFileContent);
+                    res.status(200).json({
+                        model: configData.model,
+                        key: configData.key,
+                        base_url: configData.base_url,
+                        supports_vision: configData.supports_vision !== undefined ? configData.supports_vision : false
+                    });
+                } else {
+                    // File exists but is empty
+                    res.status(404).json({ error: 'API key configuration file is empty.', notFound: true });
+                }
+            } else {
+                // File does not exist
+                res.status(404).json({ error: 'API key configuration not found.', notFound: true });
+            }
+        } catch (error) {
+            console.error("Error reading API key config for pre-fill:", error);
+            if (error instanceof SyntaxError) {
+                res.status(500).json({ error: 'API key configuration file is malformed.' });
+            } else {
+                res.status(500).json({ error: 'Failed to retrieve API key configuration.' });
+            }
+        }
+    });
+
     router.post('/api/user_data', async (req, res) => {
         const { name, 
         gender, 
