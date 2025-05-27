@@ -24,6 +24,7 @@ document.addEventListener('DOMContentLoaded', () => {
         characterCreate: document.getElementById('characterCreateError'),
         characterEdit: document.getElementById('characterEditError'),
         gameScreen: document.getElementById('gameScreenError'),
+        restoreBackup: document.getElementById('restoreBackupError') 
     };
 
     const characterEditSection = document.getElementById('character-edit-section');
@@ -66,7 +67,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const closeRestoreBackupModalButton = document.getElementById('closeRestoreBackupModal');
     const backupSelectorInput = document.getElementById('backupSelectorInput');
     const applyRestoreBackupButton = document.getElementById('applyRestoreBackupButton');
-    const restoreBackupError = document.getElementById('restoreBackupError');
 
     // Memory Viewer Modal
     const memoryViewerModal = document.getElementById('memory-viewer-modal');
@@ -116,12 +116,12 @@ document.addEventListener('DOMContentLoaded', () => {
                  appContainerElement.style.maxWidth = '100vw';
                  appContainerElement.style.padding = '0';
                  appContainerElement.style.backgroundColor = 'transparent'; 
-                 document.body.style.backgroundColor = '#000000'; // Ensure body is black for game screen
-            } else { // For setup screens (API key, user data, character setup)
+                 document.body.style.backgroundColor = '#000000'; 
+            } else { 
                  appContainerElement.style.maxWidth = '800px';
                  appContainerElement.style.padding = '20px'; 
                  appContainerElement.style.backgroundColor = 'transparent'; 
-                 document.body.style.backgroundColor = '#FFC5D3'; // Set body to pink for setup screens
+                 document.body.style.backgroundColor = '#FFC5D3'; 
             }
             toggleAttachButtonVisibility();
             if (screenId === 'game' && !initialMusicPlayAttempted) {
@@ -155,15 +155,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function displayError(element, message) {
-        const finalMessage = message || "An unknown error occurred.";
+        const finalMessage = message || ""; 
         if (element) {
             element.textContent = finalMessage;
+            element.style.display = finalMessage ? 'block' : 'none';
         } else {
             console.error("Error display element not found. Message:", finalMessage);
-            alert(finalMessage); 
+            if (finalMessage) alert(finalMessage); 
         }
-         if(message && element) element.style.display = 'block';
-         else if (element) element.style.display = 'none';
     }
 
     async function apiRequest(url, method, body, errorElement, isInitialCheck = false) {
@@ -177,7 +176,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             const response = await fetch(url, options);
             
-            if (errorElement) displayError(errorElement, '');
+            if (errorElement) displayError(errorElement, ''); 
 
             if (response.status === 204) { 
                 return { success: true, status: response.status };
@@ -195,25 +194,26 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             if (responseData.parseError) {
-                if (!isInitialCheck) {
+                if (!isInitialCheck && errorElement) {
                     displayError(errorElement, `Server returned non-JSON response (Status ${responseData.status}). Check console for details.`);
                 }
                 return responseData;
             }
 
             if (!response.ok) {
-                if (!isInitialCheck || (responseData && responseData.error && response.status !== 404)) {
-                    displayError(errorElement, responseData?.error || `Request failed: ${response.status} ${response.statusText}`);
+                const errorToDisplay = responseData?.error || `Request failed: ${response.status} ${response.statusText}`;
+                if ((!isInitialCheck || (responseData && responseData.error && response.status !== 404)) && errorElement) {
+                    displayError(errorElement, errorToDisplay);
                 }
-                return responseData;
+                return { ...responseData, error: errorToDisplay }; 
             }
             return responseData;
         } catch (error) {
             console.error(`Network error or other issue in apiRequest for ${url}:`, error);
-            if (!isInitialCheck) {
+            if (!isInitialCheck && errorElement) {
                 displayError(errorElement, `Network error: ${error.message}`);
             }
-            return { networkError: true, message: error.message };
+            return { networkError: true, message: error.message, error: `Network error: ${error.message}` };
         }
     }
 
@@ -327,7 +327,6 @@ document.addEventListener('DOMContentLoaded', () => {
         initialMusicPlayAttempted = false;
         userHasInteracted = false;
 
-        // Set up initial music volume from localStorage or default
         const lastVolume = parseFloat(localStorage.getItem(LAST_MUSIC_VOLUME_KEY)) || DEFAULT_MUSIC_VOLUME;
         bgMusicPlayer.volume = lastVolume;
         musicVolumeSlider.value = lastVolume;
@@ -335,7 +334,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const apiKeyStatusResponse = await apiRequest('/api/status/api_key', 'GET', null, null, true);
 
         if (!apiKeyStatusResponse || apiKeyStatusResponse.networkError) {
-            // showScreen will set body background
             showScreen('apiKey'); 
              if (apiKeyStatusResponse && apiKeyStatusResponse.message) {
                  displayError(errorMessages.apiKey, `Network error checking API status: ${apiKeyStatusResponse.message}`);
@@ -351,7 +349,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (!apiKeyStatusResponse.configured) {
             showScreen('apiKey');
-            if (apiKeyStatusResponse.message) { 
+            if (apiKeyStatusResponse.message && apiKeyStatusResponse.message !== 'API Key is configured.') { 
                 displayError(errorMessages.apiKey, apiKeyStatusResponse.message);
             }
             return;
@@ -377,25 +375,26 @@ document.addEventListener('DOMContentLoaded', () => {
                     forms.characterCreate.sprite.value = currentSpriteFolder || '';
                 }
                 
-                await goToGameScreen(true); // This calls showScreen('game')
+                await goToGameScreen(true); 
             } else {
                 prefillUserDataForm(); 
-                showScreen('characterSetup'); // This calls showScreen for a setup screen
+                showScreen('characterSetup'); 
                  if (charProfileResponse && charProfileResponse.error && !charProfileResponse.notFound) {
                     displayError(errorMessages.characterCreate, `Error fetching character profile: ${charProfileResponse.error}`);
+                } else if (charProfileResponse && (charProfileResponse.notFound || (!charProfileResponse.profile || !charProfileResponse.general?.sprite)) ) {
                 }
             }
         } else {
             prefillUserDataForm(); 
-            showScreen('userData'); // This calls showScreen for a setup screen
+            showScreen('userData'); 
             if (userDataResponse && userDataResponse.error && !userDataResponse.notFound) {
                 displayError(errorMessages.userData, `Error fetching user data: ${userDataResponse.error}`);
+            } else if (userDataResponse && userDataResponse.notFound) {
             }
         }
         toggleAttachButtonVisibility(); 
     }
 
-    // --- Music Helper Functions ---
     function playMusic(trackFilename, volume) {
         if (!trackFilename) return;
         
@@ -428,28 +427,24 @@ document.addEventListener('DOMContentLoaded', () => {
         const lastTrack = localStorage.getItem(LAST_MUSIC_TRACK_KEY) || DEFAULT_MUSIC_TRACK;
         const lastVolume = parseFloat(localStorage.getItem(LAST_MUSIC_VOLUME_KEY)) || DEFAULT_MUSIC_VOLUME;
         
-        // Update UI elements related to music settings
         musicVolumeSlider.value = lastVolume;
-        // (Selector update happens when music menu is opened)
 
         bgMusicPlayer.src = `/assets/bg_music/${lastTrack}`;
         bgMusicPlayer.volume = lastVolume;
         
-        // Try to play. A slight delay might help on some browsers after page load.
         setTimeout(() => {
             const playPromise = bgMusicPlayer.play();
             if (playPromise !== undefined) {
                 playPromise.then(() => {
-                    userHasInteracted = true; // Assume if it plays, interaction was allowed
+                    userHasInteracted = true; 
                     console.log("Initial music started:", lastTrack);
                 }).catch(error => {
                     console.warn("Initial music autoplay failed:", error);
                 });
             }
-        }, 100); // 100ms delay
+        }, 100); 
     }
     
-    // Call this after any *meaningful* user interaction to enable audio
     function markUserInteraction() {
         if (!userHasInteracted) {
             userHasInteracted = true;
@@ -464,10 +459,23 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    async function handleInteractionResponse(result) {
+        if (result && result.content) {
+            addMessageToDisplay('assistant', result.content);
+            if (result.sprite) {
+                changeSprite(result.sprite);
+            }
+            if (errorMessages.gameScreen) displayError(errorMessages.gameScreen, ''); 
+        } else {
+            const errorMessage = result?.error || "LLM interaction request failed or returned an invalid response.";
+            addMessageToDisplay('assistant', `Sorry, I had trouble responding. (${errorMessage})`);
+            if (errorMessages.gameScreen) {
+                displayError(errorMessages.gameScreen, errorMessage);
+            }
+        }
+    }
 
-    // --- Event Listeners (will be attached after splash) ---
     function attachEventListeners() {
-        // General click listener to mark user interaction for audio playback
         document.body.addEventListener('click', markUserInteraction, { capture: true, once: true });
 
         forms.apiKey.addEventListener('submit', async (e) => {
@@ -481,7 +489,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (result && result.model && !result.error) { 
                 visionSupportedByCurrentModel = result.supports_vision || false;
                 supportsVisionCheckbox.checked = visionSupportedByCurrentModel;
-                await initializeApp(); // Re-initialize to reflect potential changes (like vision support)
+                await initializeApp(); 
             }
         });
 
@@ -507,12 +515,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     hideModal(optionsModal);
                     isUserDataEditing = false;
                     userDataSubmitButton.textContent = 'Save User Data';
-                    // No need to call initializeApp() fully again if just editing,
-                    // but if setup flow depends on it, then call it.
-                    // For now, assume the next step is character setup or game.
-                    showScreen('characterSetup'); // Or wherever appropriate after user data edit
+                    await initializeApp(); 
                 } else {
-                    // This is initial setup
                     showScreen('characterSetup');
                 }
             } else if (!result) {
@@ -561,10 +565,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (isCharacterProfileEditing) { 
                     hideModal(optionsModal);
                     isCharacterProfileEditing = false;
-                    // Need to reload game or specific parts if profile changes while in game
-                    await goToGameScreen(true); // Reload game screen with potentially new profile effects
+                    await goToGameScreen(true); 
                 } else {
-                    // This is part of initial setup flow
                     characterEditSection.style.display = 'block'; 
                 }
             }
@@ -591,20 +593,6 @@ document.addEventListener('DOMContentLoaded', () => {
             await goToGameScreen(false); 
         });
 
-        async function handleInteractionResponse(result) {
-            if (result && result.content) {
-                addMessageToDisplay('assistant', result.content);
-                if (result.sprite) {
-                    changeSprite(result.sprite);
-                }
-            } else {
-                const errorMessage = result?.error || "LLM interaction request failed or returned an invalid response.";
-                addMessageToDisplay('assistant', `Sorry, I had trouble responding. (${errorMessage})`);
-                if (!result?.error && errorMessages.gameScreen) {
-                    displayError(errorMessages.gameScreen, errorMessage);
-                }
-            }
-        }
 
         sendMessageButton.addEventListener('click', async () => {
             markUserInteraction();
@@ -686,7 +674,6 @@ document.addEventListener('DOMContentLoaded', () => {
         removeImagePreviewButton.addEventListener('click', removeImagePreview);
 
 
-        // --- Options Modal Logic ---
         optionsButton.addEventListener('click', () => {
             markUserInteraction();
             supportsVisionCheckbox.checked = visionSupportedByCurrentModel; 
@@ -722,6 +709,14 @@ document.addEventListener('DOMContentLoaded', () => {
             hideModal(optionsModal);
             showScreen('apiKey');
             forms.apiKey.reset(); 
+            const apiKeyModelInput = document.getElementById('model');
+            const apiKeyKeyInput = document.getElementById('key');
+            const apiKeyEndpointInput = document.getElementById('endpoint');
+            
+            if(apiKeyModelInput) apiKeyModelInput.value = '';
+            if(apiKeyKeyInput) apiKeyKeyInput.value = '';
+            if(apiKeyEndpointInput) apiKeyEndpointInput.value = '';
+
             apiKeySupportsVisionCheckbox.checked = visionSupportedByCurrentModel; 
         });
 
@@ -748,7 +743,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             forms.characterCreate.style.display = 'none'; 
             characterEditSection.style.display = 'block'; 
-            continueToGameButtonElement.style.display = 'none';
+            continueToGameButtonElement.style.display = 'none'; 
 
             showScreen('characterSetup');
         });
@@ -770,7 +765,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 ul.style.listStyleType = 'none';
                 ul.style.paddingLeft = '0';
 
-                // Get user and character names
                 const characterDisplayName = currentCharacterSetupData?.name || 'Character';
                 const userDisplayName = currentUserData?.name || 'User';
 
@@ -791,7 +785,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         displayName = userDisplayName;
                         roleClass = 'memory-user-header';
                     } else {
-                        displayName = entry.role || 'Entry';
+                        displayName = entry.role || 'Entry'; 
                         roleClass = 'memory-generic-header';
                     }
                     
@@ -829,9 +823,27 @@ document.addEventListener('DOMContentLoaded', () => {
             showMemory('shortTerm');
         });
         
-        optViewLongTermMemory.addEventListener('click', () => {
+        optViewLongTermMemory.addEventListener('click', async () => {
             hideModal(optionsModal);
-            showMemory('longTerm');
+            markUserInteraction(); 
+
+            // Show diary modal immediately
+            showMemory('longTerm'); 
+            
+            // Then, trigger the character's reaction in the background
+            const interactionApiUrl = '/api/interact/view_diary';
+            // We don't need to await this fully before showing the diary, 
+            // but we do want to handle its response.
+            apiRequest(interactionApiUrl, 'POST', {}, errorMessages.gameScreen)
+                .then(result => {
+                    handleInteractionResponse(result);
+                })
+                .catch(error => {
+                    // apiRequest itself logs to console and potentially displays via errorMessages.gameScreen
+                    // If additional specific handling is needed here, add it.
+                    // For now, handleInteractionResponse will display a generic error if result is bad.
+                    handleInteractionResponse({ error: error.message || "Failed to get character reaction for diary view." });
+                });
         });
 
         closeMemoryViewerModalButton.addEventListener('click', () => hideModal(memoryViewerModal));
@@ -842,18 +854,20 @@ document.addEventListener('DOMContentLoaded', () => {
             if (result && result.message && !result.error) {
                 alert(result.message);
             } else {
-                alert(`Backup creation failed: ${result?.error || 'Unknown error'}`);
+                if (!errorMessages.gameScreen.textContent) {
+                    alert(`Backup creation failed: ${result?.error || 'Unknown error'}`);
+                }
             }
         });
 
         optRestoreCharacterButton.addEventListener('click', async () => {
-            hideModal(optionsModal); // Hide the main options modal first
-            displayError(restoreBackupError, ''); // Clear previous errors
+            hideModal(optionsModal); 
+            displayError(errorMessages.restoreBackup, ''); 
 
             try {
-                const backupListResponse = await apiRequest('/api/backups/list', 'GET', null, restoreBackupError);
+                const backupListResponse = await apiRequest('/api/backups/list', 'GET', null, errorMessages.restoreBackup);
                 if (backupListResponse && Array.isArray(backupListResponse)) {
-                    backupSelectorInput.innerHTML = ''; // Clear previous options
+                    backupSelectorInput.innerHTML = ''; 
                     if (backupListResponse.length === 0) {
                         const option = document.createElement('option');
                         option.textContent = 'No backups found.';
@@ -863,24 +877,22 @@ document.addEventListener('DOMContentLoaded', () => {
                     } else {
                         backupListResponse.forEach(backupInfo => {
                             const option = document.createElement('option');
-                            // Value will be the characterName, which the backend uses to find the file
                             option.value = backupInfo.characterName; 
-                            option.textContent = backupInfo.characterName.replace(/_/g, ' '); // Display name nicely
+                            option.textContent = backupInfo.characterName.replace(/_/g, ' '); 
                             backupSelectorInput.appendChild(option);
                         });
                         applyRestoreBackupButton.disabled = false;
                     }
                     showModal(restoreBackupModal);
                 } else {
-                     // Error already displayed by apiRequest if restoreBackupError was passed
-                    if (!restoreBackupError.textContent) {
-                        displayError(restoreBackupError, backupListResponse?.error || 'Failed to load backup list.');
+                    if (!errorMessages.restoreBackup.textContent) {
+                        displayError(errorMessages.restoreBackup, backupListResponse?.error || 'Failed to load backup list.');
                     }
-                     showModal(restoreBackupModal); // Show modal anyway to display error
+                     showModal(restoreBackupModal); 
                 }
             } catch (error) {
-                displayError(restoreBackupError, 'Error trying to fetch backup list: ' + error.message);
-                showModal(restoreBackupModal); // Show modal to display error
+                displayError(errorMessages.restoreBackup, 'Error trying to fetch backup list: ' + error.message);
+                showModal(restoreBackupModal); 
             }
         });
 
@@ -891,27 +903,24 @@ document.addEventListener('DOMContentLoaded', () => {
         applyRestoreBackupButton.addEventListener('click', async () => {
             const selectedCharacterName = backupSelectorInput.value;
             if (!selectedCharacterName || backupSelectorInput.selectedOptions[0]?.disabled) {
-                displayError(restoreBackupError, 'Please select a valid backup from the list.');
+                displayError(errorMessages.restoreBackup, 'Please select a valid backup from the list.');
                 return;
             }
 
             applyRestoreBackupButton.disabled = true;
-            displayError(restoreBackupError, ''); // Clear previous errors
+            displayError(errorMessages.restoreBackup, ''); 
 
-            // The characterName itself is used in the URL, backend constructs filename.
-            const result = await apiRequest(`/api/backups/${selectedCharacterName}`, 'GET', null, restoreBackupError);
+            const result = await apiRequest(`/api/backups/${selectedCharacterName}`, 'GET', null, errorMessages.restoreBackup);
             
             applyRestoreBackupButton.disabled = false;
 
             if (result && result.message && !result.error) {
-                alert(result.message); // Success message
+                alert(result.message); 
                 hideModal(restoreBackupModal);
-                await initializeApp(); // Re-initialize the whole app to load new character
+                await initializeApp(); 
             } else {
-                // Error is already displayed by apiRequest if restoreBackupError was passed.
-                // If not, display a generic one.
-                if (!restoreBackupError.textContent) {
-                     displayError(restoreBackupError, `Failed to restore backup for "${selectedCharacterName}": ${result?.error || 'Backup not found or error occurred.'}`);
+                if (!errorMessages.restoreBackup.textContent) {
+                     displayError(errorMessages.restoreBackup, `Failed to restore backup for "${selectedCharacterName}": ${result?.error || 'Backup not found or error occurred.'}`);
                 }
             }
         });
@@ -922,7 +931,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!confirmCreateNew) return;
 
             const result = await apiRequest('/api/memory', 'DELETE', null, errorMessages.gameScreen);
-            if (result && result.success && !result.error) { 
+            if (result && (result.success || result.status === 204) && !result.error) { 
                 alert('Current character data deleted. You will now be taken to the character creation screen.');
                 localStorage.removeItem(LAST_BACKGROUND_KEY); 
                 localStorage.removeItem(LAST_MUSIC_TRACK_KEY); 
@@ -942,14 +951,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 forms.characterCreate.reset(); 
                 characterEditSection.style.display = 'none';
                 forms.characterCreate.style.display = 'block';
-                continueToGameButtonElement.style.display = 'inline-block';
+                continueToGameButtonElement.style.display = 'inline-block'; 
+                isCharacterProfileEditing = false; 
+
                 await initializeApp(); 
             } else {
                 alert(`Failed to delete current character data: ${result?.error || 'Unknown error'}`);
             }
         });
 
-        // --- Background Change Logic ---
         changeBackgroundButton.addEventListener('click', async () => {
             markUserInteraction();
             try {
@@ -1012,7 +1022,6 @@ document.addEventListener('DOMContentLoaded', () => {
             hideModal(backgroundSelectorModal);
         });
 
-        // --- Music Settings Logic ---
         musicSettingsButton.addEventListener('click', async () => {
             markUserInteraction();
             try {
@@ -1067,7 +1076,6 @@ document.addEventListener('DOMContentLoaded', () => {
             hideModal(musicSettingsModal);
         });
 
-        // Modding folder button listener
         if (optOpenModdingFolderButton) {
             optOpenModdingFolderButton.addEventListener('click', () => {
                 markUserInteraction(); 
@@ -1085,42 +1093,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Splash Screen Animation and App Initialization ---
     if (splashScreenElement && appContainerElement) {
-        const FADE_IN_DURATION = 500;  // 1 second
-        const HOLD_DURATION = 2000;  // 1 second (app initialization happens here)
-        const FADE_OUT_DURATION = 1000; // 1 second
+        const FADE_IN_DURATION = 500;  
+        const HOLD_DURATION = 2000;  
+        const FADE_OUT_DURATION = 1000; 
 
-        // Start splash screen fade-in (from opacity 0 to 1)
-        setTimeout(() => { // Ensures CSS transition applies correctly
+        setTimeout(() => { 
             splashScreenElement.style.opacity = '1';
-        }, 50); // Small delay
+        }, 50); 
 
-        // Prepare app initialization
         const appInitializationPromise = initializeApp();
         
-        // Attach event listeners once DOM is ready for them (they are passive until interaction)
         attachEventListeners();
 
-        // Wait for both app initialization AND minimum splash hold time to complete
         Promise.all([
             appInitializationPromise,
-            new Promise(resolve => setTimeout(resolve, FADE_IN_DURATION + HOLD_DURATION)) // Min total display time before fadeout
+            new Promise(resolve => setTimeout(resolve, FADE_IN_DURATION + HOLD_DURATION)) 
         ]).then(() => {
-            // Now start fading out the splash screen
             splashScreenElement.style.opacity = '0';
 
-            // After fade-out animation completes, hide splash and show app
             setTimeout(() => {
                 splashScreenElement.style.display = 'none';
                 appContainerElement.style.display = 'block'; 
-                // initializeApp() has already called showScreen(), which set the correct
-                // body background and displayed the initial app screen.
             }, FADE_OUT_DURATION);
         }).catch(error => {
             console.error("Error during app initialization or splash sequence:", error);
-            // Fallback: Ensure splash is removed and app container is visible
-            // even if there was an error, so user isn't stuck on splash.
-            // initializeApp should handle displaying specific error messages/screens.
-            splashScreenElement.style.opacity = '0'; // Try to fade out
+            splashScreenElement.style.opacity = '0'; 
              setTimeout(() => {
                 splashScreenElement.style.display = 'none';
                 appContainerElement.style.display = 'block';
@@ -1128,18 +1125,13 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
     } else {
-        // Fallback if splash screen elements are not found
         console.warn("Splash screen element or app container not found. Initializing app directly.");
         if(appContainerElement) appContainerElement.style.display = 'block';
-        // Directly initialize and set body background based on the first screen
         initializeApp().then(() => {
             attachEventListeners();
-            // If initializeApp determined a screen, showScreen would have set the body bg.
-            // If not, and we want a default, set it here. But initializeApp *should* show a screen.
         }).catch(error => {
             console.error("Error during direct app initialization:", error);
-            // Potentially set a default body background for error states
-            document.body.style.backgroundColor = '#FFC5D3'; // Or a neutral error color
+            document.body.style.backgroundColor = '#FFC5D3'; 
         });
     }
 });

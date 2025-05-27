@@ -51,14 +51,12 @@ export default function createRouter(userDataPath) { // Accept userDataPath
       }
     });
 
-    // GET Request to check API Key configuration status and vision support
     router.get('/api/status/api_key', (req, res) => {
       const configured = isApiKeyEffectivelyConfigured();
       const visionSupport = getVisionSupportStatus();
       res.status(200).json({ configured: configured, supports_vision: visionSupport, message: configured ? 'API Key is configured.' : 'API Key not configured or is invalid.' });
     });
 
-    // PATCH request to update vision support specifically
     router.patch('/api/config/vision', async (req, res) => {
         const { supports_vision } = req.body;
 
@@ -98,7 +96,6 @@ export default function createRouter(userDataPath) { // Accept userDataPath
         }
     });
 
-    // POST Request to get user's data
     router.post('/api/user_data', async (req, res) => {
         const { name, 
         gender, 
@@ -132,7 +129,6 @@ export default function createRouter(userDataPath) { // Accept userDataPath
       }
     });
 
-    // PATCH Request to edit user's data
     router.patch('/api/user_data', async (req, res) => {
         const { name = '', 
         gender = '', 
@@ -182,7 +178,6 @@ export default function createRouter(userDataPath) { // Accept userDataPath
       }
     });
 
-    // DELETE Request to delete user's data
     router.delete('/api/user_data', async (req, res) => {
         try {
         await updateTextFile('{}', USER_DATA_PATH, 'w'); 
@@ -193,7 +188,6 @@ export default function createRouter(userDataPath) { // Accept userDataPath
       }
     });
 
-    // POST Request to generate character's personality
     router.post('/api/personality', async (req, res) => {
         const { name, personality, looks, language, sprite } = req.body;
       
@@ -217,7 +211,6 @@ export default function createRouter(userDataPath) { // Accept userDataPath
       }
     });
 
-    // PATCH Request to manually edit character's personality
     router.patch('/api/personality', async (req, res) => {
         const { edit } = req.body;
       try {
@@ -232,7 +225,6 @@ export default function createRouter(userDataPath) { // Accept userDataPath
       }
     });
 
-    // POST Request to send a message to the character
     router.post('/api/message', async (req, res) => {
       const { message, image_data } = req.body; 
       if (!message && !image_data) return res.status(400).json({ error: 'Message or image required.' });
@@ -344,15 +336,14 @@ export default function createRouter(userDataPath) { // Accept userDataPath
       }
     });
 
-    // POST Request to interact with the character
     router.post('/api/interact/:interaction_type', async (req, res) => {
         const interactionType = req.params.interaction_type;
         const { backgroundName } = req.body; 
 
         if (!interactionType) return res.status(400).json({ error: 'Interaction type not specified.' })
         
-        let interactionMessage = ''; // This will be the text part of the prompt to LLM
-        let userInteractionLogMessage = `System: User interacted by '${interactionType.replace(/_/g, ' ')}'.`; // For short-term memory
+        let interactionMessage = ''; 
+        let userInteractionLogMessage = `System: User interacted by '${interactionType.replace(/_/g, ' ')}'.`;
 
         if (interactionType === 'hug') {
           interactionMessage = 'System Message: The user hugged your sprite.';
@@ -377,8 +368,11 @@ export default function createRouter(userDataPath) { // Accept userDataPath
               return res.status(400).json({ error: 'Background name not specified for background_change interaction.' });
           }
           const cleanBackgroundName = backgroundName.replace(/\.(png|jpe?g|gif|webp)$/i, '').replace(/_/g, ' ');
-          interactionMessage = `System: The user took you to ${cleanBackgroundName}.`;
+          interactionMessage = `System Message: The user took you to ${cleanBackgroundName}.`;
           userInteractionLogMessage = `System: User changed background to ${backgroundName}.`; 
+        } else if (interactionType === 'view_diary') {
+          interactionMessage = 'System Message: The user is now reading your diary entries. How do you feel about that?';
+          userInteractionLogMessage = "System: User is viewing character's diary.";
         } else {
           interactionMessage = `System Message: The user stroke your ${interactionType.replace(/_/g, ' ')} by interacting with your sprite.`;
         };
@@ -396,7 +390,7 @@ export default function createRouter(userDataPath) { // Accept userDataPath
         const instruction = generateInstructionPrompt (personality, user_data); 
         const previousEntries = await readMemoryFile(LONG_TERM_MEMORY_PATH);
         
-        let llmPromptContent = interactionMessage; // Default to text-only prompt
+        let llmPromptContent = interactionMessage; 
 
         if (interactionType === 'background_change' && backgroundName) {
             const visionSupported = getVisionSupportStatus();
@@ -405,7 +399,7 @@ export default function createRouter(userDataPath) { // Accept userDataPath
                 try {
                     const imageBuffer = await fsPromises.readFile(backgroundFilePath);
                     const base64ImageData = imageBuffer.toString('base64');
-                    const ext = path.extname(backgroundName).slice(1).toLowerCase(); // e.g., 'png', 'jpg'
+                    const ext = path.extname(backgroundName).slice(1).toLowerCase(); 
                     
                     let mimeType = '';
                     if (ext === 'jpg' || ext === 'jpeg') mimeType = 'image/jpeg';
@@ -415,7 +409,7 @@ export default function createRouter(userDataPath) { // Accept userDataPath
 
                     if (mimeType) {
                         llmPromptContent = [
-                            { type: "text", text: interactionMessage }, // The "System: The user took you to..."
+                            { type: "text", text: interactionMessage }, 
                             { type: "image_url", image_url: { url: `data:${mimeType};base64,${base64ImageData}` } }
                         ];
                         console.log(`Background change: Sending image ${backgroundName} to LLM as vision is supported.`);
@@ -424,7 +418,6 @@ export default function createRouter(userDataPath) { // Accept userDataPath
                     }
                 } catch (imgError) {
                     console.error(`Error reading background image ${backgroundName} for vision: ${imgError.message}. Sending text only.`);
-                    // llmPromptContent remains the text-only interactionMessage
                 }
             }
         }
@@ -455,9 +448,8 @@ export default function createRouter(userDataPath) { // Accept userDataPath
           const userMessageEntry = { 
             id: lastId + 1,
             role: 'user', 
-            content: userInteractionLogMessage, // This is the simple text log for memory
+            content: userInteractionLogMessage, 
             timestamp: new Date().toISOString()
-            // No image_data here for the log entry itself for background change
           };
           const assistantMessageEntry = {
             id: lastId + 2,
@@ -508,7 +500,6 @@ export default function createRouter(userDataPath) { // Accept userDataPath
         }
     });
 
-    // DELETE Requests to reset memories
     router.delete('/api/memory', async (req, res) => {
         try {
         await updateTextFile('', PERSONALITY_PATH, 'w');
@@ -539,13 +530,13 @@ export default function createRouter(userDataPath) { // Accept userDataPath
           return res.status(404).json({ error: 'Not a valid memory type.' });
         }
         return res.status(204).send(); 
-      } catch (error) {
+      } catch (error)
+      {
         console.error(error);
         res.status(500).json({ error: 'Failed to delete memory.' });
       }
     });
 
-    // GET Request to list available backup files
     router.get('/api/backups/list', (req, res) => {
         try {
             if (!fsSync.existsSync(BACKUPS_DIR_PATH)) {
@@ -566,7 +557,6 @@ export default function createRouter(userDataPath) { // Accept userDataPath
         }
     });
 
-    // GET Request to retrieve data from backup
     router.get('/api/backups/:name', async (req, res) => {
         const characterNameFromRequest = req.params.name; 
       if (!characterNameFromRequest) return res.status(400).json({ error: 'Bad request: Character name for backup not provided.' });
@@ -607,7 +597,6 @@ export default function createRouter(userDataPath) { // Accept userDataPath
       }
     });
 
-    // GET Request to get short term memory
     router.get('/api/memory/short_term', async (req, res) => {
         try {
         const messages = await readMemoryFile(SHORT_TERM_MEMORY_PATH, -1); 
@@ -618,7 +607,6 @@ export default function createRouter(userDataPath) { // Accept userDataPath
       }
     });
 
-    // GET Request to get long term memory
     router.get('/api/memory/long_term', async (req, res) => {
         try {
         const entries = await readMemoryFile(LONG_TERM_MEMORY_PATH, -1); 
@@ -646,7 +634,6 @@ export default function createRouter(userDataPath) { // Accept userDataPath
       }
     });
 
-    // GET Request to retrieve character's personality and general info
     router.get('/api/personality', async (req, res) => {
         try {
         const personalityText = await readTextFile(PERSONALITY_PATH);
@@ -671,7 +658,6 @@ export default function createRouter(userDataPath) { // Accept userDataPath
       }
     });
 
-    // GET Request to get list of available backgrounds
     router.get('/api/backgrounds', (req, res) => {
       try {
         if (!fsSync.existsSync(ASSETS_BACKGROUNDS_PATH)) {
@@ -686,7 +672,6 @@ export default function createRouter(userDataPath) { // Accept userDataPath
       }
     });
 
-    // GET Request to get list of available music tracks
     router.get('/api/music', (req, res) => {
       try {
         if (!fsSync.existsSync(ASSETS_MUSIC_PATH)) {
@@ -701,8 +686,6 @@ export default function createRouter(userDataPath) { // Accept userDataPath
       }
     });
 
-
-    // POST Request to manually create a backup
     router.post('/api/backups/create', async (req, res) => {
         try {
             const generalString = await readTextFile(GENERAL_MEMORY_PATH);
@@ -715,8 +698,12 @@ export default function createRouter(userDataPath) { // Accept userDataPath
                 return res.status(400).json({ error: 'Character name not found or invalid in general info. Cannot create backup.' });
             }
 
-            const shortTermData = JSON.parse(await readTextFile(SHORT_TERM_MEMORY_PATH));
-            const longTermData = JSON.parse(await readTextFile(LONG_TERM_MEMORY_PATH));
+            const shortTermDataString = await readTextFile(SHORT_TERM_MEMORY_PATH);
+            const shortTermData = shortTermDataString ? JSON.parse(shortTermDataString) : [];
+
+            const longTermDataString = await readTextFile(LONG_TERM_MEMORY_PATH);
+            const longTermData = longTermDataString ? JSON.parse(longTermDataString) : [];
+            
             const personalityData = await readTextFile(PERSONALITY_PATH);
             
             const backupObject = { 
@@ -732,8 +719,8 @@ export default function createRouter(userDataPath) { // Accept userDataPath
             res.status(201).json({ message: `Backup for ${safeBackupName} created successfully.`, filePath: backupFilePath });
         } catch (error) {
             console.error('Error during manual backup creation: ', error);
-            if (error.code === 'ENOENT') { 
-                return res.status(500).json({ error: 'Failed to create backup: A required memory file is missing.' });
+            if (error.code === 'ENOENT' && (error.path === SHORT_TERM_MEMORY_PATH || error.path === LONG_TERM_MEMORY_PATH || error.path === PERSONALITY_PATH || error.path === GENERAL_MEMORY_PATH )) { 
+                 return res.status(500).json({ error: 'Failed to create backup: A required memory file is missing or empty.' });
             }
             res.status(500).json({ error: 'Failed to create backup.' });
         }
