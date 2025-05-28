@@ -116,7 +116,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const DEFAULT_MUSIC_TRACK = 'Simple Piano Melody.mp3';
     const DEFAULT_MUSIC_VOLUME = 0.5;
     let initialMusicPlayAttempted = false;
-    let userHasInteracted = false;
+    let userHasInteracted = false; // This will still be useful for retrying play on first *explicit* click
     let _resolveConfirmationPromise = null;
 
 
@@ -257,12 +257,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (screenId === 'characterSetup' && !isCharacterProfileEditing) {
                 populateSpriteFolderSelector(); 
             }
-            // If editing, populateSpriteFolderSelector is called in optChangeCharProfile listener
 
             toggleAttachButtonVisibility();
-            if (screenId === 'game' && !initialMusicPlayAttempted) {
-                playInitialMusic();
-            }
+            // Music play attempt is now handled after splash screen in initializeApp flow
+            // or by user interaction, not tied to specific screen.
         } else {
             console.error("Screen not found:", screenId);
         }
@@ -314,19 +312,14 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             const response = await fetch(url, options);
             
-            // Clear error display *only if* an errorElement is provided and it's not an initial check that might be a 404
-            // Or if it is an initial check, but response is OK
             if (errorElement && (!isInitialCheck || response.ok)) {
                  displayError(errorElement, ''); 
             }
-
 
             if (response.status === 204) { 
                 return { success: true, status: response.status };
             }
 
-            // For initial checks, a 404 might be "normal" (e.g., config file not found yet)
-            // We return a specific structure so the caller can decide not to show an error UI.
             if (isInitialCheck && response.status === 404) {
                 const responseDataOnError = await response.json().catch(() => ({ notFound: true, status: 404, error: "Resource not found." }));
                 return responseDataOnError; 
@@ -340,11 +333,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (responseData.parseError) {
                 const errorMsg = `Server returned non-JSON response (Status ${responseData.status}). Check console for details.`;
-                // Only display error if not an initial check where a non-JSON response for a missing file might be expected
-                // or if an errorElement is explicitly provided.
                 if (errorElement) {
                     displayError(errorElement, errorMsg);
-                } else if (!isInitialCheck) { // Avoid general notification for initial setup checks if no specific error element
+                } else if (!isInitialCheck) { 
                     showInGameNotification(errorMsg, 'error');
                 }
                 return responseData;
@@ -352,25 +343,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (!response.ok) {
                 const errorToDisplay = responseData?.error || `Request failed: ${response.status} ${response.statusText}`;
-                 // Display error if:
-                 // 1. It's not an initial check (always show errors for regular operations)
-                 // 2. OR it IS an initial check, but it's NOT a 404 (e.g., a 500 error during initial setup is bad)
-                 // 3. OR an errorElement is provided (caller explicitly wants errors here)
                 if (errorElement && (!isInitialCheck || (isInitialCheck && response.status !== 404))) {
                     displayError(errorElement, errorToDisplay);
-                } else if (!isInitialCheck && !errorElement) { // General notification for non-initial checks if no specific element
+                } else if (!isInitialCheck && !errorElement) { 
                     showInGameNotification(errorToDisplay, 'error');
                 }
-                // For initial checks that are 404, this part is skipped, and `responseDataOnError` from above is returned.
                 return { ...responseData, error: errorToDisplay, status: response.status }; 
             }
-            return responseData; // Successful response with JSON body
+            return responseData;
         } catch (error) {
             console.error(`Network error or other issue in apiRequest for ${url}:`, error);
             const networkErrorMsg = `Network error: ${error.message}. Check if the server is running.`;
-            if (errorElement) { // Always show network errors if an element is provided
+            if (errorElement) { 
                 displayError(errorElement, networkErrorMsg);
-            } else if (!isInitialCheck) { // Avoid general notification for initial setup checks if no specific error element
+            } else if (!isInitialCheck) { 
                  showInGameNotification(networkErrorMsg, 'error');
             }
             return { networkError: true, message: error.message, error: networkErrorMsg };
@@ -484,14 +470,8 @@ document.addEventListener('DOMContentLoaded', () => {
         showScreen('game');
     }
 
-    async function initializeApp() {
-        initialMusicPlayAttempted = false;
-        userHasInteracted = false;
-
-        const lastVolume = parseFloat(localStorage.getItem(LAST_MUSIC_VOLUME_KEY)) || DEFAULT_MUSIC_VOLUME;
-        bgMusicPlayer.volume = lastVolume;
-        musicVolumeSlider.value = lastVolume;
-
+    async function initializeAppCoreLogic() {
+        // This function contains the main app logic after splash/initial music attempt
         const apiKeyStatusResponse = await apiRequest('/api/status/api_key', 'GET', null, null, true);
 
         if (!apiKeyStatusResponse || apiKeyStatusResponse.networkError) {
@@ -510,11 +490,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (!apiKeyStatusResponse.configured) {
             showScreen('apiKey');
-            // Don't display an error message here by default, as it's normal for the first run.
-            // The screen itself indicates the need for configuration.
-            // if (apiKeyStatusResponse.message && apiKeyStatusResponse.message !== 'API Key is configured.') { 
-            //     displayError(errorMessages.apiKey, apiKeyStatusResponse.message);
-            // }
             return;
         }
 
@@ -541,22 +516,23 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 prefillUserDataForm(); 
                 showScreen('characterSetup'); 
-                 if (charProfileResponse && charProfileResponse.error && !charProfileResponse.notFound) { // Not a 404 means an actual error
+                 if (charProfileResponse && charProfileResponse.error && !charProfileResponse.notFound) { 
                     displayError(errorMessages.characterCreate, `Error fetching character profile: ${charProfileResponse.error}`);
                 }
             }
         } else {
             prefillUserDataForm(); 
             showScreen('userData'); 
-            if (userDataResponse && userDataResponse.error && !userDataResponse.notFound) { // Not a 404 means an actual error
+            if (userDataResponse && userDataResponse.error && !userDataResponse.notFound) { 
                 displayError(errorMessages.userData, `Error fetching user data: ${userDataResponse.error}`);
             }
         }
-        toggleAttachButtonVisibility(); 
+        toggleAttachButtonVisibility();
     }
 
+
     function playMusic(trackFilename, volume) {
-        if (!trackFilename) return;
+        if (!trackFilename || !bgMusicPlayer) return;
         
         const newSrc = `/assets/bg_music/${trackFilename}`;
         if (bgMusicPlayer.src !== newSrc || bgMusicPlayer.paused) {
@@ -568,38 +544,52 @@ document.addEventListener('DOMContentLoaded', () => {
         const playPromise = bgMusicPlayer.play();
         if (playPromise !== undefined) {
             playPromise.then(_ => {
-                initialMusicPlayAttempted = true; 
-                userHasInteracted = true;
+                // initialMusicPlayAttempted is set by playInitialMusic
+                userHasInteracted = true; // If music plays, user interaction is implied for future plays
                 console.log("Music playing:", trackFilename);
             }).catch(error => {
-                console.warn("Music play failed:", error);
-                initialMusicPlayAttempted = true;
+                console.warn("Music play failed for track:", trackFilename, error);
+                // initialMusicPlayAttempted remains true if set by playInitialMusic
             });
-        } else {
-            initialMusicPlayAttempted = true;
         }
     }
 
     function playInitialMusic() {
-        if (initialMusicPlayAttempted && !bgMusicPlayer.paused) return;
+        if (initialMusicPlayAttempted && !bgMusicPlayer.paused) {
+            console.log("Initial music already playing or play already attempted and successful.");
+            return;
+        }
+        if(initialMusicPlayAttempted && bgMusicPlayer.paused && !userHasInteracted) {
+            console.log("Initial music play attempted but was paused, likely by autoplay policy. Waiting for user interaction.");
+            return;
+        }
 
+        console.log("Attempting to play initial music...");
         initialMusicPlayAttempted = true; 
+        
         const lastTrack = localStorage.getItem(LAST_MUSIC_TRACK_KEY) || DEFAULT_MUSIC_TRACK;
         const lastVolume = parseFloat(localStorage.getItem(LAST_MUSIC_VOLUME_KEY)) || DEFAULT_MUSIC_VOLUME;
         
-        musicVolumeSlider.value = lastVolume;
+        if (musicVolumeSlider) musicVolumeSlider.value = lastVolume;
+        if (!bgMusicPlayer) {
+            console.error("bgMusicPlayer element not found. Cannot play initial music.");
+            return;
+        }
 
         bgMusicPlayer.src = `/assets/bg_music/${lastTrack}`;
         bgMusicPlayer.volume = lastVolume;
         
+        // A small delay can sometimes help with autoplay in Electron environments
         setTimeout(() => {
             const playPromise = bgMusicPlayer.play();
             if (playPromise !== undefined) {
                 playPromise.then(() => {
-                    userHasInteracted = true; 
+                    userHasInteracted = true; // Assume interaction if autoplay succeeds
                     console.log("Initial music started:", lastTrack);
                 }).catch(error => {
-                    console.warn("Initial music autoplay failed:", error);
+                    console.warn("Initial music autoplay failed:", error.name, error.message);
+                    // Don't set userHasInteracted to false here, as it's about the *initial* attempt.
+                    // The userInteraction flag is for subsequent explicit clicks.
                 });
             }
         }, 100); 
@@ -607,13 +597,18 @@ document.addEventListener('DOMContentLoaded', () => {
     
     function markUserInteraction() {
         if (!userHasInteracted) {
+            console.log("User interaction detected.");
             userHasInteracted = true;
-            if (bgMusicPlayer.paused && bgMusicPlayer.src && initialMusicPlayAttempted) {
+            // If music was attempted but failed due to autoplay, try playing now.
+            if (bgMusicPlayer && bgMusicPlayer.paused && bgMusicPlayer.src && initialMusicPlayAttempted) {
+                 console.log("Retrying music playback after user interaction.");
                  const playPromise = bgMusicPlayer.play();
                  if (playPromise !== undefined) {
                     playPromise.catch(e => console.warn("Playback attempt after explicit interaction mark failed:", e));
                  }
-            } else if (!bgMusicPlayer.src && !initialMusicPlayAttempted) {
+            } else if (bgMusicPlayer && !bgMusicPlayer.src && !initialMusicPlayAttempted) {
+                // This case should be rare if playInitialMusic is called early
+                console.log("Music source not set and not attempted, playing initial music now due to interaction.");
                 playInitialMusic();
             }
         }
@@ -636,7 +631,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function attachEventListeners() {
+        // Universal click listener for marking user interaction (helps with audio autoplay)
+        // { capture: true, once: true } ensures it runs early and only once for this purpose.
         document.body.addEventListener('click', markUserInteraction, { capture: true, once: true });
+
 
         if (confirmYesButton && confirmNoButton && closeConfirmationModalInternalButton && confirmationModal) {
             confirmYesButton.onclick = () => {
@@ -669,7 +667,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         forms.apiKey.addEventListener('submit', async (e) => {
             e.preventDefault();
-            markUserInteraction();
             const formData = new FormData(forms.apiKey);
             const data = Object.fromEntries(formData.entries());
             data.supports_vision = apiKeySupportsVisionCheckbox.checked;
@@ -678,13 +675,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (result && result.model && !result.error) { 
                 visionSupportedByCurrentModel = result.supports_vision || false;
                 supportsVisionCheckbox.checked = visionSupportedByCurrentModel;
-                await initializeApp(); 
+                await initializeAppCoreLogic(); 
             }
         });
 
         forms.userData.addEventListener('submit', async (e) => {
             e.preventDefault();
-            markUserInteraction();
             const formData = new FormData(forms.userData);
             let data = Object.fromEntries(formData.entries());
 
@@ -704,7 +700,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     hideModal(optionsModal);
                     isUserDataEditing = false;
                     userDataSubmitButton.textContent = 'Save User Data';
-                    await initializeApp(); 
+                    await initializeAppCoreLogic(); 
                 } else {
                     showScreen('characterSetup');
                 }
@@ -715,7 +711,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         forms.characterCreate.addEventListener('submit', async (e) => {
             e.preventDefault();
-            markUserInteraction();
             const formData = new FormData(forms.characterCreate);
             const data = Object.fromEntries(formData.entries());
             
@@ -749,7 +744,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         saveEditedPersonalityButton.addEventListener('click', async () => {
-            markUserInteraction();
             const editedProfileText = generatedPersonalityTextarea.value;
             const formData = new FormData(forms.characterCreate);
             const generalDataFromForm = Object.fromEntries(formData.entries());
@@ -812,7 +806,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         
         continueToGameButtonElement.addEventListener('click', async () => {
-            markUserInteraction();
             if (!currentCharacterSetupData.name || !currentCharacterSetupData.sprite) { 
                 const formData = new FormData(forms.characterCreate);
                 currentCharacterSetupData.name = formData.get('name');
@@ -832,7 +825,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
         sendMessageButton.addEventListener('click', async () => {
-            markUserInteraction();
             const messageText = userMessageInput.value.trim();
             if (!messageText && !selectedImageBase64) return;
 
@@ -862,7 +854,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         performActionButton.addEventListener('click', async () => {
-            markUserInteraction();
             const selectedAction = actionSelector.value;
             if (!selectedAction) return;
 
@@ -873,7 +864,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         attachImageButton.addEventListener('click', () => {
-            markUserInteraction();
             imageUploadInput.click();
         });
 
@@ -912,7 +902,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
         optionsButton.addEventListener('click', () => {
-            markUserInteraction();
             supportsVisionCheckbox.checked = visionSupportedByCurrentModel; 
             showModal(optionsModal);
         });
@@ -965,7 +954,6 @@ document.addEventListener('DOMContentLoaded', () => {
             hideModal(optionsModal);
             showScreen('apiKey');
             forms.apiKey.reset();
-            // Clear previous error explicitly when opening this form
             displayError(errorMessages.apiKey, ''); 
 
             const apiKeyModelInput = document.getElementById('model');
@@ -973,35 +961,29 @@ document.addEventListener('DOMContentLoaded', () => {
             const apiKeyEndpointInput = document.getElementById('endpoint');
 
             try {
-                // Pass null for errorElement because we don't want to show an error
-                // if the config is simply not found (isInitialCheck = true handles this).
                 const currentApiKeyConfig = await apiRequest('/api/api_key_data', 'GET', null, null, true);
 
                 if (currentApiKeyConfig && !currentApiKeyConfig.error && !currentApiKeyConfig.notFound) {
                     if (apiKeyModelInput) apiKeyModelInput.value = currentApiKeyConfig.model || '';
-                    if (apiKeyKeyInput) apiKeyKeyInput.value = currentApiKeyConfig.key || ''; // Will likely be empty or masked
+                    if (apiKeyKeyInput) apiKeyKeyInput.value = currentApiKeyConfig.key || ''; 
                     if (apiKeyEndpointInput) apiKeyEndpointInput.value = currentApiKeyConfig.base_url || '';
                     apiKeySupportsVisionCheckbox.checked = currentApiKeyConfig.supports_vision !== undefined 
                         ? currentApiKeyConfig.supports_vision 
                         : visionSupportedByCurrentModel;
                 } else if (currentApiKeyConfig && currentApiKeyConfig.error && !currentApiKeyConfig.notFound) {
-                    // This case is for actual errors (e.g., malformed file, server error), not just "not found"
                     console.error("Error fetching API key data for pre-fill:", currentApiKeyConfig.error);
                     displayError(errorMessages.apiKey, `Could not load current API key settings: ${currentApiKeyConfig.error}`);
-                    // Reset form fields to ensure no stale data
                     if (apiKeyModelInput) apiKeyModelInput.value = '';
                     if (apiKeyKeyInput) apiKeyKeyInput.value = '';
                     if (apiKeyEndpointInput) apiKeyEndpointInput.value = '';
                     apiKeySupportsVisionCheckbox.checked = visionSupportedByCurrentModel; 
                 } else {
-                    // Config not found or empty (expected for first run), so just ensure form is clear.
-                    // console.log("API key config not found or empty. Form will be blank."); // Informative, not an error
                     if (apiKeyModelInput) apiKeyModelInput.value = '';
                     if (apiKeyKeyInput) apiKeyKeyInput.value = '';
                     if (apiKeyEndpointInput) apiKeyEndpointInput.value = '';
-                    apiKeySupportsVisionCheckbox.checked = visionSupportedByCurrentModel; // Default to current state
+                    apiKeySupportsVisionCheckbox.checked = visionSupportedByCurrentModel; 
                 }
-            } catch (error) { // Catch network errors from apiRequest itself
+            } catch (error) { 
                 console.error("Network or other error fetching API key data for pre-fill:", error);
                 displayError(errorMessages.apiKey, "Could not load current API key settings due to a network or system error.");
                 if (apiKeyModelInput) apiKeyModelInput.value = '';
@@ -1080,10 +1062,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 localStorage.removeItem(LAST_BACKGROUND_KEY);
                 localStorage.removeItem(LAST_MUSIC_TRACK_KEY);
                 localStorage.removeItem(LAST_MUSIC_VOLUME_KEY);
-                bgMusicPlayer.pause();
-                bgMusicPlayer.src = "";
+                if (bgMusicPlayer) {
+                    bgMusicPlayer.pause();
+                    bgMusicPlayer.src = "";
+                }
                 initialMusicPlayAttempted = false;
-                userHasInteracted = false;
+                // userHasInteracted = false; // Reset this too for a truly new session feel
 
                 currentCharacterPersonalityText = '';
                 currentCharacterSetupData = {};
@@ -1093,7 +1077,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 resetCharacterSetupToCreationMode(); 
                 isCharacterProfileEditing = false; 
 
-                await initializeApp(); 
+                await initializeAppCoreLogic(); 
             } else {
                  showInGameNotification(`Failed to delete current character data: ${result?.error || 'Unknown error'}`, 'error');
             }
@@ -1176,7 +1160,6 @@ document.addEventListener('DOMContentLoaded', () => {
         
         optViewLongTermMemory.addEventListener('click', async () => {
             hideModal(optionsModal);
-            markUserInteraction(); 
 
             showMemory('longTerm'); 
             
@@ -1261,7 +1244,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (result && result.message && !result.error) {
                 showInGameNotification(result.message, 'success'); 
                 hideModal(restoreBackupModal);
-                await initializeApp(); 
+                await initializeAppCoreLogic(); 
             } else {
                 if (!errorMessages.restoreBackup.textContent) {
                      displayError(errorMessages.restoreBackup, `Failed to restore backup for "${selectedCharacterName}": ${result?.error || 'Backup not found or error occurred.'}`);
@@ -1271,7 +1254,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
         changeBackgroundButton.addEventListener('click', async () => {
-            markUserInteraction();
             try {
                 displayError(errorMessages.gameScreen, ''); 
                 const backgrounds = await apiRequest('/api/backgrounds', 'GET', null, errorMessages.gameScreen); 
@@ -1308,7 +1290,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         applyBackgroundButton.addEventListener('click', async () => {
-            markUserInteraction();
             const selectedBackgroundFile = backgroundSelectorInput.value;
             if (!selectedBackgroundFile || backgroundSelectorInput.selectedOptions[0]?.disabled) {
                 showInGameNotification('Please select a background from the list.', 'warning');
@@ -1333,7 +1314,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         musicSettingsButton.addEventListener('click', async () => {
-            markUserInteraction();
             try {
                 displayError(errorMessages.gameScreen, '');
                 const musicTracks = await apiRequest('/api/music', 'GET', null, errorMessages.gameScreen);
@@ -1356,7 +1336,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             musicTrackSelector.appendChild(option);
                         });
                     }
-                    musicVolumeSlider.value = bgMusicPlayer.volume; 
+                    if (bgMusicPlayer) musicVolumeSlider.value = bgMusicPlayer.volume; 
                     showModal(musicSettingsModal);
                 } else {
                     if (!errorMessages.gameScreen.textContent) { 
@@ -1370,16 +1350,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
         musicTrackSelector.addEventListener('change', () => {
             const selectedTrack = musicTrackSelector.value;
-            if (selectedTrack) {
+            if (selectedTrack && bgMusicPlayer) {
                 playMusic(selectedTrack, bgMusicPlayer.volume); 
                 localStorage.setItem(LAST_MUSIC_TRACK_KEY, selectedTrack);
             }
         });
 
         musicVolumeSlider.addEventListener('input', () => { 
-            const newVolume = parseFloat(musicVolumeSlider.value);
-            bgMusicPlayer.volume = newVolume;
-            localStorage.setItem(LAST_MUSIC_VOLUME_KEY, newVolume.toString());
+            if (bgMusicPlayer) {
+                const newVolume = parseFloat(musicVolumeSlider.value);
+                bgMusicPlayer.volume = newVolume;
+                localStorage.setItem(LAST_MUSIC_VOLUME_KEY, newVolume.toString());
+            }
         });
 
         closeMusicSettingsModalButton.addEventListener('click', () => {
@@ -1388,7 +1370,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (optOpenModdingFolderButton) {
             optOpenModdingFolderButton.addEventListener('click', () => {
-                markUserInteraction(); 
                 if (window.electronAPI && typeof window.electronAPI.openModdingFolder === 'function') {
                     window.electronAPI.openModdingFolder();
                 } else {
@@ -1401,49 +1382,67 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
-    // --- Splash Screen Animation and App Initialization ---
-    if (splashScreenElement && appContainerElement) {
-        const FADE_IN_DURATION = 500;  
-        const HOLD_DURATION = 2000;  
-        const FADE_OUT_DURATION = 1000; 
+    // --- App Initialization Sequence ---
+    async function initializeApp() {
+        // Setup that doesn't depend on async calls first
+        initialMusicPlayAttempted = false;
+        userHasInteracted = false; // Reset interaction state on full initialize
+        if (bgMusicPlayer && musicVolumeSlider) {
+            const lastVolume = parseFloat(localStorage.getItem(LAST_MUSIC_VOLUME_KEY)) || DEFAULT_MUSIC_VOLUME;
+            bgMusicPlayer.volume = lastVolume;
+            musicVolumeSlider.value = lastVolume;
+        }
 
-        setTimeout(() => { 
-            splashScreenElement.style.opacity = '1';
-        }, 50); 
+        // Attach event listeners early, so user interaction can be captured even during splash
+        attachEventListeners(); 
 
-        const appInitializationPromise = initializeApp();
-        
-        attachEventListeners();
+        if (splashScreenElement && appContainerElement) {
+            const FADE_IN_DURATION = 500;  
+            const HOLD_DURATION = 2000;  
+            const FADE_OUT_DURATION = 1000; 
 
-        Promise.all([
-            appInitializationPromise,
-            new Promise(resolve => setTimeout(resolve, FADE_IN_DURATION + HOLD_DURATION)) 
-        ]).then(() => {
-            splashScreenElement.style.opacity = '0';
+            setTimeout(() => { 
+                splashScreenElement.style.opacity = '1';
+            }, 50); 
 
-            setTimeout(() => {
-                splashScreenElement.style.display = 'none';
-                appContainerElement.style.display = 'block'; 
-            }, FADE_OUT_DURATION);
-        }).catch(error => {
-            console.error("Error during app initialization or splash sequence:", error);
-            showInGameNotification("Error during app initialization. Please check console.", "error", 0);
-            splashScreenElement.style.opacity = '0'; 
-             setTimeout(() => {
-                splashScreenElement.style.display = 'none';
-                appContainerElement.style.display = 'block';
-            }, FADE_OUT_DURATION);
-        });
+            // Start core app logic loading in parallel with splash screen hold
+            const coreLogicPromise = initializeAppCoreLogic();
+            
+            Promise.all([
+                coreLogicPromise, // Wait for core logic to finish
+                new Promise(resolve => setTimeout(resolve, FADE_IN_DURATION + HOLD_DURATION)) // Wait for splash screen duration
+            ]).then(() => {
+                splashScreenElement.style.opacity = '0';
+                setTimeout(() => {
+                    splashScreenElement.style.display = 'none';
+                    appContainerElement.style.display = 'block'; 
+                    playInitialMusic(); // Attempt to play music AFTER app container is visible
+                }, FADE_OUT_DURATION);
+            }).catch(error => {
+                console.error("Error during app initialization or splash sequence:", error);
+                showInGameNotification("Error during app initialization. Please check console.", "error", 0);
+                splashScreenElement.style.opacity = '0'; 
+                 setTimeout(() => {
+                    splashScreenElement.style.display = 'none';
+                    appContainerElement.style.display = 'block';
+                    // Still attempt music play even on error path if app container shown
+                    playInitialMusic(); 
+                }, FADE_OUT_DURATION);
+            });
 
-    } else {
-        console.warn("Splash screen element or app container not found. Initializing app directly.");
-        if(appContainerElement) appContainerElement.style.display = 'block';
-        initializeApp().then(() => {
-            attachEventListeners();
-        }).catch(error => {
-            console.error("Error during direct app initialization:", error);
-            showInGameNotification("Error during app initialization. Please check console.", "error", 0);
-            document.body.style.backgroundColor = '#FFC5D3'; 
-        });
+        } else { // Fallback if splash screen elements are not found
+            console.warn("Splash screen element or app container not found. Initializing app directly.");
+            if(appContainerElement) appContainerElement.style.display = 'block';
+            initializeAppCoreLogic().then(() => {
+                playInitialMusic(); // Attempt music play
+            }).catch(error => {
+                console.error("Error during direct app initialization:", error);
+                showInGameNotification("Error during app initialization. Please check console.", "error", 0);
+                document.body.style.backgroundColor = '#FFC5D3'; 
+            });
+        }
     }
+
+    initializeApp(); // Start the whole process
+
 });
