@@ -231,7 +231,14 @@ export default function createRouter(userDataPath) { // Accept userDataPath
         const personalityPrompt = generatePersonalityPrompt (name, looks, personality, language);
         const result = await ask_LLM(personalityPrompt);
         await updateTextFile(result, PERSONALITY_PATH, 'w');
-        const jsonData = JSON.stringify({ 'name': name, 'looks': looks, 'sprite': sprite, 'language': language, 'rawPersonalityInput': personality }, null, 2); 
+        const generalData = { 
+            'name': name, 
+            'looks': looks, 
+            'sprite': sprite, 
+            'language': language, 
+            'rawPersonalityInput': personality 
+        };
+        const jsonData = JSON.stringify(generalData, null, 2); 
         await updateTextFile(jsonData, GENERAL_MEMORY_PATH, 'w');
         res.status(201).json({ characterProfile: result });
       } catch (error) {
@@ -241,17 +248,74 @@ export default function createRouter(userDataPath) { // Accept userDataPath
     });
 
     router.patch('/api/personality', async (req, res) => {
-        const { edit } = req.body;
-      try {
-        if (!edit || edit.trim() === '') { 
-          return res.status(400).json({ error: 'Cannot leave personality empty.' });
-        };
-        await updateTextFile(edit, PERSONALITY_PATH, 'w');
-        res.status(200).json({ characterProfile: edit }); 
-      } catch (error) {
-        console.error(error);
-        res.status(400).json({ error: 'Failed to edit character\'s personality.' });
-      }
+        const { edit, general: generalUpdates } = req.body;
+
+        try {
+            let updatedProfileText = null;
+            let currentGeneralData = {};
+
+            // Update personality.txt if 'edit' is provided
+            if (edit) {
+                if (edit.trim() === '') {
+                    return res.status(400).json({ error: 'Cannot leave personality profile text empty.' });
+                }
+                await updateTextFile(edit, PERSONALITY_PATH, 'w');
+                updatedProfileText = edit;
+            } else {
+                // If not editing text, read current to return
+                updatedProfileText = await readTextFile(PERSONALITY_PATH);
+            }
+
+            // Update general.json if 'general' updates are provided
+            if (generalUpdates) {
+                if (!generalUpdates.name?.trim() || !generalUpdates.looks?.trim() || !generalUpdates.sprite?.trim() || !generalUpdates.language?.trim()) {
+                    return res.status(400).json({ error: 'Core general character details (Name, Gender, Sprite, Language) cannot be empty.' });
+                }
+
+                // Validate sprite folder existence
+                const characterSpritePath = path.join(ASSETS_SPRITES_BASE_PATH, generalUpdates.sprite);
+                if (!fsSync.existsSync(characterSpritePath)) {
+                    return res.status(400).json({ error: `Sprite folder '${generalUpdates.sprite}' does not exist.` });
+                }
+
+                try {
+                    const generalFileContent = await readTextFile(GENERAL_MEMORY_PATH);
+                    if (generalFileContent && generalFileContent.trim() !== '') {
+                        currentGeneralData = JSON.parse(generalFileContent);
+                    }
+                } catch (e) {
+                    // File might not exist or be empty, start with empty object - this is fine
+                    console.warn("Could not read existing general.json, will create/overwrite.", e.message);
+                }
+                
+                const newGeneralData = {
+                    ...currentGeneralData, // Keep any existing fields not being updated
+                    name: generalUpdates.name,
+                    looks: generalUpdates.looks,
+                    sprite: generalUpdates.sprite,
+                    language: generalUpdates.language,
+                    rawPersonalityInput: generalUpdates.rawPersonalityInput || currentGeneralData.rawPersonalityInput || "" // Preserve or update
+                };
+                await updateTextFile(JSON.stringify(newGeneralData, null, 2), GENERAL_MEMORY_PATH, 'w');
+                currentGeneralData = newGeneralData; // For the response
+            } else {
+                 // If no general updates, read current to return
+                const generalFileContent = await readTextFile(GENERAL_MEMORY_PATH);
+                 if (generalFileContent && generalFileContent.trim() !== '') {
+                    currentGeneralData = JSON.parse(generalFileContent);
+                }
+            }
+            
+            res.status(200).json({ 
+                message: 'Character data updated successfully.',
+                characterProfile: updatedProfileText, // The (potentially new) profile text
+                general: currentGeneralData // The (potentially new) general data
+            });
+
+        } catch (error) {
+            console.error("Error updating character data (PATCH):", error);
+            res.status(500).json({ error: 'Failed to update character data.' });
+        }
     });
 
     router.post('/api/message', async (req, res) => {
