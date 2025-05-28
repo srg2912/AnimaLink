@@ -27,6 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
         restoreBackup: document.getElementById('restoreBackupError') 
     };
 
+    const characterCreateFormSubmitButton = forms.characterCreate.querySelector('button[type="submit"]');    
     const characterEditSection = document.getElementById('character-edit-section');
     const generatedPersonalityTextarea = document.getElementById('generatedPersonality');
     const saveEditedPersonalityButton = document.getElementById('saveEditedPersonality');
@@ -751,24 +752,160 @@ document.addEventListener('DOMContentLoaded', () => {
             showScreen('userData');
         });
         
-        optChangeCharProfile.addEventListener('click', () => {
-            hideModal(optionsModal);
-            isCharacterProfileEditing = true;
-            
-            if (currentCharacterSetupData) {
-                forms.characterCreate.name.value = currentCharacterSetupData.name || '';
-                forms.characterCreate.looks.value = currentCharacterSetupData.looks || '';
-                forms.characterCreate.personality.value = currentCharacterSetupData.rawPersonalityInput || ''; 
-                forms.characterCreate.language.value = currentCharacterSetupData.language || '';
-                forms.characterCreate.sprite.value = currentSpriteFolder || currentCharacterSetupData.sprite || '';
-            }
-            generatedPersonalityTextarea.value = currentCharacterPersonalityText || '';
-            
-            forms.characterCreate.style.display = 'none'; 
-            characterEditSection.style.display = 'block'; 
-            continueToGameButtonElement.style.display = 'none'; 
+        forms.characterCreate.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            markUserInteraction();
+            const formData = new FormData(forms.characterCreate);
+            const data = Object.fromEntries(formData.entries());
 
-            showScreen('characterSetup');
+            if (!data.name?.trim() || !data.looks?.trim() || !data.personality?.trim() || !data.language?.trim() || !data.sprite?.trim()) {
+                displayError(errorMessages.characterCreate, "All fields with * are required.");
+                return;
+            }
+
+            // This POST request will update general.json and regenerate personality.txt
+            const result = await apiRequest('/api/personality', 'POST', data, errorMessages.characterCreate);
+            if (result && result.characterProfile && !result.error) {
+                currentCharacterPersonalityText = result.characterProfile;
+                // Fetch the latest general info as POST updates it
+                const generalInfoResponse = await apiRequest('/api/personality', 'GET', null, errorMessages.characterCreate);
+                if (generalInfoResponse && generalInfoResponse.general) {
+                    currentCharacterSetupData = generalInfoResponse.general;
+                    currentSpriteFolder = generalInfoResponse.general.sprite;
+                } else {
+                    // Fallback: update from form data if GET somehow fails
+                    currentCharacterSetupData = { ...data, rawPersonalityInput: data.personality };
+                    currentSpriteFolder = data.sprite;
+                }
+                generatedPersonalityTextarea.value = result.characterProfile;
+                characterEditSection.style.display = 'block'; // Ensure it remains visible
+
+                if (isCharacterProfileEditing) {
+                    alert('Character details updated and profile regenerated!');
+                    // User stays on this screen to potentially save or further edit
+                }
+            }
+        });
+
+        saveEditedPersonalityButton.addEventListener('click', async () => {
+            markUserInteraction();
+            const editedProfileText = generatedPersonalityTextarea.value;
+
+            if (!editedProfileText.trim()) {
+                displayError(errorMessages.characterEdit, 'Generated personality profile text cannot be empty.');
+                return;
+            }
+
+            const patchData = { edit: editedProfileText };
+
+            // If in editing mode, also collect general info from the main form
+            // to send along with the PATCH request.
+            const formData = new FormData(forms.characterCreate);
+            const generalDataFromForm = Object.fromEntries(formData.entries());
+
+            // Validate required general info fields before sending
+            if (!generalDataFromForm.name?.trim() || !generalDataFromForm.looks?.trim() ||
+                !generalDataFromForm.personality?.trim() || // raw personality input
+                !generalDataFromForm.language?.trim() || !generalDataFromForm.sprite?.trim()) {
+                displayError(errorMessages.characterEdit, "Cannot save: Core character details (Name, Gender, Personality Description, Language, Sprite Folder) are required and cannot be empty.");
+                return;
+            }
+
+            patchData.general = {
+                name: generalDataFromForm.name,
+                looks: generalDataFromForm.looks,
+                sprite: generalDataFromForm.sprite,
+                language: generalDataFromForm.language,
+                rawPersonalityInput: generalDataFromForm.personality
+            };
+
+            const result = await apiRequest('/api/personality', 'PATCH', patchData, errorMessages.characterEdit);
+
+            if (result && (result.characterProfile || result.message) && !result.error) {
+                if (result.characterProfile) { // Backend might only return a message if only general was updated
+                    currentCharacterPersonalityText = result.characterProfile;
+                }
+                // Fetch the latest general info to ensure local state is up-to-date
+                const generalInfoResponse = await apiRequest('/api/personality', 'GET', null, errorMessages.characterEdit);
+                if (generalInfoResponse && generalInfoResponse.general) {
+                    currentCharacterSetupData = generalInfoResponse.general;
+                    currentSpriteFolder = generalInfoResponse.general.sprite;
+                }
+
+                alert('Character data saved successfully!');
+
+                if (isCharacterProfileEditing) {
+                    // Reset UI for character setup screen to default creation mode
+                    resetCharacterSetupToCreationMode();
+                    isCharacterProfileEditing = false; // Clear editing flag
+                    await goToGameScreen(true); // Go back to game, refresh with new data
+                } else {
+                    // This branch is for initial creation flow after generating and then saving edited profile
+                    characterEditSection.style.display = 'block'; // Keep it visible
+                    // The "Continue to Game" button should be visible here.
+                    continueToGameButtonElement.style.display = 'inline-block';
+                }
+            }
+        });
+
+        // Function to reset character setup screen UI to default creation mode
+        function resetCharacterSetupToCreationMode() {
+            if (characterCreateFormSubmitButton) {
+                characterCreateFormSubmitButton.textContent = 'Generate Character Profile';
+            }
+            saveEditedPersonalityButton.textContent = 'Save Edited Profile';
+            continueToGameButtonElement.style.display = 'inline-block'; // Default for creation flow
+
+            // Only reset the form if not actively editing (e.g., on modal close or new char)
+            // forms.characterCreate.reset();
+            // generatedPersonalityTextarea.value = '';
+            
+            forms.characterCreate.style.display = 'block';
+             // Hide edit section by default in creation mode, shows after generation
+            characterEditSection.style.display = 'none';
+        }
+
+
+        closeOptionsModalButton.addEventListener('click', () => {
+            if (isCharacterProfileEditing) {
+                resetCharacterSetupToCreationMode();
+                isCharacterProfileEditing = false; // Clear flag
+            }
+            hideModal(optionsModal);
+        });
+
+
+        optCreateNewCharacterButton.addEventListener('click', async () => {
+            hideModal(optionsModal);
+            const confirmCreateNew = confirm("This will delete the current character's profile, memories, and chat history. Make a backup first if you want to save the current character. Continue to create a new character?");
+            if (!confirmCreateNew) return;
+
+            const result = await apiRequest('/api/memory', 'DELETE', null, errorMessages.gameScreen);
+            if (result && (result.success || result.status === 204) && !result.error) {
+                alert('Current character data deleted. You will now be taken to the character creation screen.');
+                localStorage.removeItem(LAST_BACKGROUND_KEY);
+                localStorage.removeItem(LAST_MUSIC_TRACK_KEY);
+                localStorage.removeItem(LAST_MUSIC_VOLUME_KEY);
+                bgMusicPlayer.pause();
+                bgMusicPlayer.src = "";
+                initialMusicPlayAttempted = false;
+                userHasInteracted = false;
+
+                currentUserData = {}; // Keep user data unless explicitly changed
+                currentCharacterPersonalityText = '';
+                currentCharacterSetupData = {};
+                currentSpriteFolder = '';
+                messageDisplay.innerHTML = '';
+                generatedPersonalityTextarea.value = '';
+                forms.characterCreate.reset(); // Reset the form for new character
+
+                resetCharacterSetupToCreationMode(); // Crucially reset UI elements
+                isCharacterProfileEditing = false; // Ensure not in edit mode
+
+                await initializeApp(); // This will guide to user data or char setup
+            } else {
+                alert(`Failed to delete current character data: ${result?.error || 'Unknown error'}`);
+            }
         });
 
     async function showMemory(type) {
