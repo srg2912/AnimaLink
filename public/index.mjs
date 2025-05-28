@@ -682,7 +682,6 @@ document.addEventListener('DOMContentLoaded', () => {
             markUserInteraction();
             const editedProfileText = generatedPersonalityTextarea.value;
 
-            // This validation for the generated profile text is correct and should remain.
             if (!editedProfileText.trim()) {
                 displayError(errorMessages.characterEdit, 'Generated personality profile text cannot be empty.');
                 return;
@@ -691,28 +690,20 @@ document.addEventListener('DOMContentLoaded', () => {
             const patchData = { edit: editedProfileText };
             const formData = new FormData(forms.characterCreate);
             const generalDataFromForm = Object.fromEntries(formData.entries());
-
-            // MODIFIED VALIDATION:
-            // Validate required general info fields before sending.
-            // The generalDataFromForm.personality (rawPersonalityInput from charPersonalityDesc)
-            // is NOT strictly required to be non-empty here, as we are primarily saving the
-            // already generated/edited profile text. It will be included in the patchData.general
-            // and sent to the backend (can be an empty string).
             if (!generalDataFromForm.name?.trim() || 
-                !generalDataFromForm.looks?.trim() || // 'looks' is Character Gender
+                !generalDataFromForm.looks?.trim() || 
                 !generalDataFromForm.language?.trim() || 
                 !generalDataFromForm.sprite?.trim()) {
                 displayError(errorMessages.characterEdit, "Cannot save: Core character details (Name, Character Gender, Language, Sprite Folder) are required and cannot be empty.");
                 return;
             }
-            
-            // Construct the general data part of the payload
+
             patchData.general = {
                 name: generalDataFromForm.name,
                 looks: generalDataFromForm.looks,
                 sprite: generalDataFromForm.sprite,
                 language: generalDataFromForm.language,
-                rawPersonalityInput: generalDataFromForm.personality // This is from charPersonalityDesc
+                rawPersonalityInput: generalDataFromForm.personality
             };
 
             saveEditedPersonalityButton.disabled = true;
@@ -723,7 +714,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (result.characterProfile) { 
                     currentCharacterPersonalityText = result.characterProfile;
                 }
-                // Fetch the latest general info to ensure local state is up-to-date
                 const generalInfoResponse = await apiRequest('/api/personality', 'GET', null, errorMessages.characterEdit);
                 if (generalInfoResponse && generalInfoResponse.general) {
                     currentCharacterSetupData = generalInfoResponse.general;
@@ -752,7 +742,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 currentCharacterSetupData.looks = formData.get('looks');
                 currentCharacterSetupData.language = formData.get('language');
                 currentCharacterSetupData.sprite = formData.get('sprite');
-                // rawPersonalityInput should already be set in currentCharacterSetupData if profile was generated
             }
             if (!currentSpriteFolder && forms.characterCreate.sprite.value) {
                 currentSpriteFolder = forms.characterCreate.sprite.value;
