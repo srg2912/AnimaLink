@@ -84,8 +84,10 @@
                 <textarea id="charPersonalityDesc" name="personality" rows="3" placeholder="Describe their personality" required></textarea><br>
                 <label for="charLanguage">Character Language*:</label>
                 <input type="text" id="charLanguage" name="language" value="English" placeholder="e.g., English, Spanish" required><br>
-                <label for="charSpriteFolder">Sprite Folder To Use*:</label>
-                <input type="text" id="charSpriteFolder" name="sprite" placeholder="default_male, default_female or mod" required><br>
+                <label for="charSpriteFolderSelector">Sprite Folder To Use*:</label>
+                <select id="charSpriteFolderSelector" name="sprite" class="game-select" required>
+                    <option value="" disabled selected>Loading sprite folders...</option>
+                </select><br>
                 <button type="submit">Generate Character Profile</button>
             </form>
             <p class="error-message" id="characterCreateError"></p>

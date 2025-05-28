@@ -110,11 +110,9 @@ export default function createRouter(userDataPath) { // Accept userDataPath
                         supports_vision: configData.supports_vision !== undefined ? configData.supports_vision : false
                     });
                 } else {
-                    // File exists but is empty
                     res.status(404).json({ error: 'API key configuration file is empty.', notFound: true });
                 }
             } else {
-                // File does not exist
                 res.status(404).json({ error: 'API key configuration not found.', notFound: true });
             }
         } catch (error) {
@@ -652,13 +650,13 @@ export default function createRouter(userDataPath) { // Accept userDataPath
         try {
         const userDataString = await readTextFile(USER_DATA_PATH);
         if (!userDataString || userDataString.trim() === '{}' || userDataString.trim() === '') {
-            return res.status(404).json({ error: 'User data not found.' });
+            return res.status(404).json({ error: 'User data not found.', notFound: true });
         }
         const userData = JSON.parse(userDataString);
         res.status(200).json(userData);
       } catch (error) {
         if (error.code === 'ENOENT') {
-            return res.status(404).json({ error: 'User data file not found.' });
+            return res.status(404).json({ error: 'User data file not found.', notFound: true });
         }
          console.error("Error fetching user data:", error);
         res.status(500).json({ error: 'User data not found or is invalid.' });
@@ -671,7 +669,7 @@ export default function createRouter(userDataPath) { // Accept userDataPath
         const generalJsonString = await readTextFile(GENERAL_MEMORY_PATH);
 
         if ((!personalityText || personalityText.trim() === '') && (!generalJsonString || generalJsonString.trim() === '{}' || generalJsonString.trim() === '')) {
-             return res.status(404).json({ error: 'Character profile and general info not found.' });
+             return res.status(404).json({ error: 'Character profile and general info not found.', notFound: true });
         }
         
         const generalData = (generalJsonString && generalJsonString.trim() !== '{}' && generalJsonString.trim() !== '') ? JSON.parse(generalJsonString) : {};
@@ -682,7 +680,7 @@ export default function createRouter(userDataPath) { // Accept userDataPath
         });
       } catch (error) {
          if (error.code === 'ENOENT') {
-            return res.status(404).json({ error: 'Character profile or general info file not found.' });
+            return res.status(404).json({ error: 'Character profile or general info file not found.', notFound: true });
         }
         console.error("Error fetching personality:", error);
         res.status(500).json({ error: 'Character profile not found or is invalid.' });
@@ -754,6 +752,25 @@ export default function createRouter(userDataPath) { // Accept userDataPath
                  return res.status(500).json({ error: 'Failed to create backup: A required memory file is missing or empty.' });
             }
             res.status(500).json({ error: 'Failed to create backup.' });
+        }
+    });
+
+    // New endpoint to list sprite folders
+    router.get('/api/sprites/folders', async (req, res) => {
+        try {
+            if (!fsSync.existsSync(ASSETS_SPRITES_BASE_PATH)) {
+                console.warn(`Sprites base directory not found: ${ASSETS_SPRITES_BASE_PATH}`);
+                return res.status(200).json([]); 
+            }
+            const dirents = await fsPromises.readdir(ASSETS_SPRITES_BASE_PATH, { withFileTypes: true });
+            const folderNames = dirents
+                .filter(dirent => dirent.isDirectory())
+                .map(dirent => dirent.name);
+            
+            res.status(200).json(folderNames);
+        } catch (error) {
+            console.error('Error listing sprite folders:', error);
+            res.status(500).json({ error: 'Failed to retrieve sprite folders list.' });
         }
     });
 

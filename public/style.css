@@ -74,8 +74,9 @@ body {
 .form-box input[type="password"],
 .form-box input[type="url"],
 .form-box input[type="number"],
-.form-box textarea {
-    width: calc(100% - 22px);
+.form-box textarea,
+.form-box select.game-select { /* Added select.game-select here */
+    width: 100%; 
     padding: 12px;
     margin-bottom: 18px;
     border: 1px solid rgba(255, 255, 255, 0.5);
@@ -95,6 +96,12 @@ body {
     resize: vertical;
     min-height: 80px;
 }
+
+.form-box select.game-select option {
+    background-color: #333; /* Darker background for options */
+    color: white;
+}
+
 
 .form-box button {
     background-color: #FF69B4; 

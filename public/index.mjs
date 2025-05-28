@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     
     const apiKeySupportsVisionCheckbox = document.getElementById('apiKeySupportsVision');
+    const charSpriteFolderSelector = document.getElementById('charSpriteFolderSelector');
 
     const errorMessages = {
         apiKey: document.getElementById('apiKeyError'),
@@ -124,8 +125,6 @@ document.addEventListener('DOMContentLoaded', () => {
     function showInGameNotification(message, type = 'info', duration = 5000) {
         if (!inGameNotificationsContainer) {
             console.warn("In-game notification container not found. Falling back to console log:", message);
-            // Avoid alert in a function that's supposed to replace alerts
-            // alert(message); 
             return;
         }
 
@@ -140,7 +139,7 @@ document.addEventListener('DOMContentLoaded', () => {
         closeButton.innerHTML = '×';
         closeButton.classList.add('in-game-notification-close');
         closeButton.onclick = () => {
-            notification.classList.remove('fade-in'); // Start fade out
+            notification.classList.remove('fade-in'); 
             notification.classList.add('fade-out');
             setTimeout(() => notification.remove(), 300); 
         };
@@ -166,7 +165,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (!confirmationModal || !confirmationTitleElement || !confirmationMessageElement || !confirmYesButton || !confirmNoButton) {
                 console.warn("Confirmation modal elements not found. Falling back to window.confirm.");
-                // Fallback to original confirm if critical elements are missing
                 const result = window.confirm(message); 
                 resolve(result);
                 return;
@@ -177,6 +175,67 @@ document.addEventListener('DOMContentLoaded', () => {
             
             showModal(confirmationModal); 
         });
+    }
+
+    async function populateSpriteFolderSelector(selectedValue = null) {
+        if (!charSpriteFolderSelector) return;
+        charSpriteFolderSelector.disabled = true;
+        charSpriteFolderSelector.innerHTML = '<option value="" disabled selected>Loading sprite folders...</option>';
+
+
+        try {
+            const spriteFolders = await apiRequest('/api/sprites/folders', 'GET', null, errorMessages.characterCreate);
+            charSpriteFolderSelector.innerHTML = ''; // Clear existing options
+
+            if (spriteFolders && Array.isArray(spriteFolders) && spriteFolders.length > 0) {
+                const placeholderOption = document.createElement('option');
+                placeholderOption.value = "";
+                placeholderOption.textContent = "Select a sprite folder";
+                placeholderOption.disabled = true;
+                if (!selectedValue) placeholderOption.selected = true;
+                charSpriteFolderSelector.appendChild(placeholderOption);
+
+                spriteFolders.forEach(folderName => {
+                    const option = document.createElement('option');
+                    option.value = folderName;
+                    // Simple prettify: replace underscores with spaces and capitalize words
+                    option.textContent = folderName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                    charSpriteFolderSelector.appendChild(option);
+                });
+
+                if (selectedValue) {
+                    charSpriteFolderSelector.value = selectedValue;
+                     if (charSpriteFolderSelector.selectedIndex === -1 || charSpriteFolderSelector.value !== selectedValue) {
+                        console.warn(`Sprite folder "${selectedValue}" not found in selector. Defaulting selection.`);
+                        if (charSpriteFolderSelector.options.length > 1) charSpriteFolderSelector.selectedIndex = 1; // Select first actual folder
+                        else charSpriteFolderSelector.selectedIndex = 0; // Select placeholder
+                    }
+                } else {
+                    // Ensure placeholder is selected if no value is to be pre-selected
+                     if (charSpriteFolderSelector.options.length > 0) charSpriteFolderSelector.selectedIndex = 0;
+                }
+                charSpriteFolderSelector.disabled = false;
+
+            } else {
+                const option = document.createElement('option');
+                option.value = "";
+                option.textContent = "No sprite folders found";
+                option.disabled = true;
+                option.selected = true;
+                charSpriteFolderSelector.appendChild(option);
+                charSpriteFolderSelector.disabled = true;
+                if (spriteFolders && spriteFolders.error) {
+                    // Error already handled by apiRequest or will be displayed
+                } else if (Array.isArray(spriteFolders) && spriteFolders.length === 0) {
+                    displayError(errorMessages.characterCreate, "No sprite folders found in your assets/sprites directory. Please add some character sprite folders there and refresh or restart.");
+                }
+            }
+        } catch (error) {
+            console.error("Error populating sprite folder selector:", error);
+            displayError(errorMessages.characterCreate, "Could not load sprite folders. Check console.");
+            charSpriteFolderSelector.innerHTML = '<option value="" disabled selected>Error loading folders</option>';
+            charSpriteFolderSelector.disabled = true;
+        }
     }
 
 
@@ -196,6 +255,11 @@ document.addEventListener('DOMContentLoaded', () => {
                  appContainerElement.style.backgroundColor = 'transparent'; 
                  document.body.style.backgroundColor = '#FFC5D3'; 
             }
+
+            if (screenId === 'characterSetup' && !isCharacterProfileEditing) {
+                populateSpriteFolderSelector(); // Populate when screen becomes visible for new character
+            }
+
             toggleAttachButtonVisibility();
             if (screenId === 'game' && !initialMusicPlayAttempted) {
                 playInitialMusic();
@@ -453,18 +517,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 currentSpriteFolder = charProfileResponse.general.sprite;
                 
                 generatedPersonalityTextarea.value = currentCharacterPersonalityText;
+                // Pre-fill for character edit, actual population of selector happens in optChangeCharProfile or showScreen
                 if (forms.characterCreate && forms.characterCreate.name) { 
                     forms.characterCreate.name.value = currentCharacterSetupData.name || '';
                     forms.characterCreate.looks.value = currentCharacterSetupData.looks || '';
                     forms.characterCreate.personality.value = currentCharacterSetupData.rawPersonalityInput || ''; 
                     forms.characterCreate.language.value = currentCharacterSetupData.language || 'English';
-                    forms.characterCreate.sprite.value = currentSpriteFolder || '';
+                    // charSpriteFolderSelector.value will be set by populateSpriteFolderSelector if called
                 }
                 
                 await goToGameScreen(true); 
             } else {
                 prefillUserDataForm(); 
-                showScreen('characterSetup'); 
+                showScreen('characterSetup'); // This will trigger populateSpriteFolderSelector
                  if (charProfileResponse && charProfileResponse.error && !charProfileResponse.notFound) {
                     displayError(errorMessages.characterCreate, `Error fetching character profile: ${charProfileResponse.error}`);
                 } else if (charProfileResponse && (charProfileResponse.notFound || (!charProfileResponse.profile || !charProfileResponse.general?.sprite)) ) {
@@ -649,13 +714,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = Object.fromEntries(formData.entries());
             
             if (!data.name?.trim() || !data.looks?.trim() || !data.personality?.trim() || !data.language?.trim() || !data.sprite?.trim()) {
-                displayError(errorMessages.characterCreate, "All fields with * are required.");
+                displayError(errorMessages.characterCreate, "All fields with * are required. Please select a sprite folder.");
                 return;
             }
             
-            characterCreateFormSubmitButton.disabled = true; // Disable button during processing
+            characterCreateFormSubmitButton.disabled = true; 
             const result = await apiRequest('/api/personality', 'POST', data, errorMessages.characterCreate);
-            characterCreateFormSubmitButton.disabled = false; // Re-enable button
+            characterCreateFormSubmitButton.disabled = false; 
 
             if (result && result.characterProfile && !result.error) {
                 currentCharacterPersonalityText = result.characterProfile;
@@ -693,7 +758,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!generalDataFromForm.name?.trim() || 
                 !generalDataFromForm.looks?.trim() || 
                 !generalDataFromForm.language?.trim() || 
-                !generalDataFromForm.sprite?.trim()) {
+                !generalDataFromForm.sprite?.trim()) { // Ensure sprite (from select) is also checked
                 displayError(errorMessages.characterEdit, "Cannot save: Core character details (Name, Character Gender, Language, Sprite Folder) are required and cannot be empty.");
                 return;
             }
@@ -701,7 +766,7 @@ document.addEventListener('DOMContentLoaded', () => {
             patchData.general = {
                 name: generalDataFromForm.name,
                 looks: generalDataFromForm.looks,
-                sprite: generalDataFromForm.sprite,
+                sprite: generalDataFromForm.sprite, // This comes from the select
                 language: generalDataFromForm.language,
                 rawPersonalityInput: generalDataFromForm.personality
             };
@@ -723,7 +788,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 showInGameNotification('Character data saved successfully!', 'success');
 
                 if (isCharacterProfileEditing) {
-                    resetCharacterSetupToCreationMode();
+                    resetCharacterSetupToCreationMode(); // This will clear form and repopulate selector
                     isCharacterProfileEditing = false; 
                     await goToGameScreen(true); 
                     hideModal(optionsModal); 
@@ -741,15 +806,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 currentCharacterSetupData.name = formData.get('name');
                 currentCharacterSetupData.looks = formData.get('looks');
                 currentCharacterSetupData.language = formData.get('language');
-                currentCharacterSetupData.sprite = formData.get('sprite');
+                currentCharacterSetupData.sprite = formData.get('sprite'); // Gets value from select
             }
-            if (!currentSpriteFolder && forms.characterCreate.sprite.value) {
-                currentSpriteFolder = forms.characterCreate.sprite.value;
+            if (!currentSpriteFolder && charSpriteFolderSelector.value) {
+                currentSpriteFolder = charSpriteFolderSelector.value;
                 if (currentCharacterSetupData) currentCharacterSetupData.sprite = currentSpriteFolder;
             }
             
             if (!currentSpriteFolder) {
-                displayError(errorMessages.characterEdit, "Sprite folder is missing. Please fill the 'Sprite Folder To Use' field and generate/save the profile. Cannot continue.");
+                displayError(errorMessages.characterEdit, "Sprite folder is missing. Please select a sprite folder and generate/save the profile. Cannot continue.");
                 return;
             }
             await goToGameScreen(false); 
@@ -842,7 +907,7 @@ document.addEventListener('DOMContentLoaded', () => {
             showModal(optionsModal);
         });
         closeOptionsModalButton.addEventListener('click', () => {
-            if (isCharacterProfileEditing) { // If closing options modal while editing char profile
+            if (isCharacterProfileEditing) { 
                 resetCharacterSetupToCreationMode();
                 isCharacterProfileEditing = false; 
             }
@@ -889,7 +954,7 @@ document.addEventListener('DOMContentLoaded', () => {
         optChangeApiKey.addEventListener('click', async () => {
             hideModal(optionsModal);
             showScreen('apiKey');
-            forms.apiKey.reset(); // Reset the form fields
+            forms.apiKey.reset(); 
 
             const apiKeyModelInput = document.getElementById('model');
             const apiKeyKeyInput = document.getElementById('key');
@@ -934,30 +999,30 @@ document.addEventListener('DOMContentLoaded', () => {
             hideModal(optionsModal);
             isCharacterProfileEditing = true;
 
-            // Fetch current profile to ensure we're editing the latest
             const charProfileResponse = await apiRequest('/api/personality', 'GET', null, errorMessages.characterCreate, true);
             if (charProfileResponse && charProfileResponse.profile && charProfileResponse.general && !charProfileResponse.error) {
                 currentCharacterPersonalityText = charProfileResponse.profile;
                 currentCharacterSetupData = charProfileResponse.general;
                 currentSpriteFolder = charProfileResponse.general.sprite;
 
-                // Pre-fill form fields
                 forms.characterCreate.name.value = currentCharacterSetupData.name || '';
                 forms.characterCreate.looks.value = currentCharacterSetupData.looks || '';
                 forms.characterCreate.personality.value = currentCharacterSetupData.rawPersonalityInput || '';
                 forms.characterCreate.language.value = currentCharacterSetupData.language || 'English';
-                forms.characterCreate.sprite.value = currentCharacterSetupData.sprite || '';
+                
+                await populateSpriteFolderSelector(currentCharacterSetupData.sprite || ''); // Populate and select
+                
                 generatedPersonalityTextarea.value = currentCharacterPersonalityText;
                 
                 characterEditSection.style.display = 'block';
-                characterCreateFormSubmitButton.textContent = 'Regenerate Character Profile'; // Change button text
+                characterCreateFormSubmitButton.textContent = 'Regenerate Character Profile'; 
                 saveEditedPersonalityButton.textContent = 'Save All Character Data';
-                continueToGameButtonElement.style.display = 'none'; // Hide "Continue to Game" as we're in edit mode
+                continueToGameButtonElement.style.display = 'none'; 
 
             } else {
                 showInGameNotification('Could not load character profile for editing.', 'error');
-                isCharacterProfileEditing = false; // Reset flag
-                return; // Don't proceed to show the screen if data load failed
+                isCharacterProfileEditing = false; 
+                return; 
             }
             showScreen('characterSetup');
         });
@@ -966,15 +1031,15 @@ document.addEventListener('DOMContentLoaded', () => {
             if (characterCreateFormSubmitButton) {
                 characterCreateFormSubmitButton.textContent = 'Generate Character Profile';
             }
-            saveEditedPersonalityButton.textContent = 'Save Edited Profile'; // Or "Save Generated Profile"
-            continueToGameButtonElement.style.display = 'inline-block'; // Or 'none' initially, then 'block' after generation
+            saveEditedPersonalityButton.textContent = 'Save Edited Profile'; 
+            continueToGameButtonElement.style.display = 'inline-block'; 
             
-            // Optional: Clear form fields if truly resetting to "new character" state
-            // forms.characterCreate.reset(); 
-            // generatedPersonalityTextarea.value = '';
+            forms.characterCreate.reset(); 
+            generatedPersonalityTextarea.value = '';
+            populateSpriteFolderSelector(); // Repopulate and set to default "Select..."
             
             forms.characterCreate.style.display = 'block';
-            characterEditSection.style.display = 'none'; // Hide edit section by default
+            characterEditSection.style.display = 'none'; 
         }
 
 
@@ -997,18 +1062,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 initialMusicPlayAttempted = false;
                 userHasInteracted = false;
 
-                // currentUserData = {}; // User data should persist unless explicitly changed by user
                 currentCharacterPersonalityText = '';
                 currentCharacterSetupData = {};
                 currentSpriteFolder = '';
                 messageDisplay.innerHTML = '';
                 generatedPersonalityTextarea.value = '';
-                forms.characterCreate.reset(); 
+                // forms.characterCreate.reset(); // Done by resetCharacterSetupToCreationMode
 
                 resetCharacterSetupToCreationMode(); 
                 isCharacterProfileEditing = false; 
 
-                await initializeApp(); 
+                await initializeApp(); // This will eventually call showScreen('characterSetup') which populates selector
             } else {
                  showInGameNotification(`Failed to delete current character data: ${result?.error || 'Unknown error'}`, 'error');
             }
@@ -1113,7 +1177,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (result && result.message && !result.error) {
                 showInGameNotification(result.message, 'success');
             } else {
-                if (!errorMessages.gameScreen.textContent) { // Only show notification if no specific error display is active
+                if (!errorMessages.gameScreen.textContent) { 
                     showInGameNotification(`Backup creation failed: ${result?.error || 'Unknown error'}`, 'error');
                 }
             }
@@ -1184,7 +1248,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // Removed duplicated optCreateNewCharacterButton listener here
 
         changeBackgroundButton.addEventListener('click', async () => {
             markUserInteraction();
