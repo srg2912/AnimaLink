@@ -76,18 +76,30 @@
         <div id="character-setup-screen" class="screen form-box" style="display: none;">
              <h2>Create Your Character</h2>
             <form id="characterCreateForm">
-                <label for="charName">Character Name*:</label>
-                <input type="text" id="charName" name="name" placeholder="Character's Name" required><br>
-                <label for="charLooks">Character Gender*:</label>
-                <input type="text" id="charLooks" name="looks" placeholder="e.g., female, male, non-binary" required><br>
-                <label for="charPersonalityDesc">Character Personality Description*:</label>
-                <textarea id="charPersonalityDesc" name="personality" rows="3" placeholder="Describe their personality" required></textarea><br>
-                <label for="charLanguage">Character Language*:</label>
-                <input type="text" id="charLanguage" name="language" value="English" placeholder="e.g., English, Spanish" required><br>
-                <label for="charSpriteFolderSelector">Sprite Folder To Use*:</label>
-                <select id="charSpriteFolderSelector" name="sprite" class="game-select" required>
-                    <option value="" disabled selected>Loading sprite folders...</option>
-                </select><br>
+                <div class="form-columns-wrapper">
+                    <div class="form-field-item">
+                        <label for="charName">Character Name*:</label>
+                        <input type="text" id="charName" name="name" placeholder="Character's Name" required>
+                    </div>
+                    <div class="form-field-item">
+                        <label for="charLooks">Character Gender*:</label>
+                        <input type="text" id="charLooks" name="looks" placeholder="e.g., female, male, non-binary" required>
+                    </div>
+                    <div class="form-field-item form-field-full-width">
+                        <label for="charPersonalityDesc">Character Personality Description*:</label>
+                        <textarea id="charPersonalityDesc" name="personality" rows="3" placeholder="Describe their personality" required></textarea>
+                    </div>
+                    <div class="form-field-item">
+                        <label for="charLanguage">Character Language*:</label>
+                        <input type="text" id="charLanguage" name="language" value="English" placeholder="e.g., English, Spanish" required>
+                    </div>
+                    <div class="form-field-item">
+                        <label for="charSpriteFolderSelector">Sprite Folder To Use*:</label>
+                        <select id="charSpriteFolderSelector" name="sprite" class="game-select" required>
+                            <option value="" disabled selected>Loading sprite folders...</option>
+                        </select>
+                    </div>
+                </div>
                 <button type="submit">Generate Character Profile</button>
             </form>
             <p class="error-message" id="characterCreateError"></p>

@@ -70,18 +70,19 @@ body {
     color: white;
 }
 
+/* General styling for form inputs, textareas, and selects */
 .form-box input[type="text"],
 .form-box input[type="password"],
 .form-box input[type="url"],
 .form-box input[type="number"],
 .form-box textarea,
-.form-box select.game-select { /* Added select.game-select here */
+.form-box select.game-select {
     width: 100%; 
     padding: 12px;
-    margin-bottom: 18px;
+    margin-bottom: 18px; /* Default margin for elements not in a grid */
     border: 1px solid rgba(255, 255, 255, 0.5);
     border-radius: 5px;
-    box-sizing: border-box;
+    box-sizing: border-box; 
     background-color: rgba(255, 255, 255, 0.1);
     color: white;
     font-size: 1em;
@@ -98,8 +99,41 @@ body {
 }
 
 .form-box select.game-select option {
-    background-color: #333; /* Darker background for options */
+    background-color: #333; 
     color: white;
+}
+
+/* Character Create Form Column Layout */
+.form-box #characterCreateForm .form-columns-wrapper {
+    display: grid;
+    /* Creates 2 columns if space allows, min 250px each, else 1 column */
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); 
+    gap: 18px 20px; /* 18px row gap, 20px column gap */
+    align-items: start; /* Align items to the top of their grid cell */
+    margin-bottom: 25px; /* Space before the main submit button */
+}
+
+/* Remove bottom margin for inputs/textareas/selects inside a .form-field-item 
+   as the grid 'gap' property will handle spacing between rows. */
+.form-box #characterCreateForm .form-columns-wrapper .form-field-item > input,
+.form-box #characterCreateForm .form-columns-wrapper .form-field-item > textarea,
+.form-box #characterCreateForm .form-columns-wrapper .form-field-item > select {
+    margin-bottom: 0; 
+}
+
+.form-box #characterCreateForm .form-columns-wrapper .form-field-full-width {
+    grid-column: 1 / -1; /* Makes this item span all available columns */
+}
+
+/* Responsive adjustments for character create form (if auto-fit isn't sufficient) */
+@media (max-width: 599px) { /* Slightly less than 2*250px + 20px gap */
+    .form-box #characterCreateForm .form-columns-wrapper {
+        grid-template-columns: 1fr; /* Force single column */
+        gap: 18px 0; /* Row gap, no column gap */
+    }
+    .form-box #characterCreateForm .form-columns-wrapper .form-field-full-width {
+        grid-column: auto; /* Reset span for single column layout */
+    }
 }
 
 
@@ -246,7 +280,7 @@ body {
     flex-grow: 1;
     flex-shrink: 1;
     min-width: 0;
-    margin-bottom: 0;
+    margin-bottom: 0; /* No margin here, handled by parent or general rules */
     background-color: rgba(255, 255, 255, 0.2);
     color: white;
     border: 1px solid rgba(255,255,255,0.4);
@@ -290,7 +324,7 @@ body {
     gap: 8px;
 }
 
-.game-button, .game-select {
+.game-button, .game-select { /* General game button/select, not in form-box */
     background-color: rgba(0,0,0,0.6);
     color: white;
     border: 1px solid rgba(255,255,255,0.5);
@@ -302,9 +336,10 @@ body {
 .game-button:hover, .game-select:hover {
     background-color: rgba(0,0,0,0.8);
 }
-.game-select {
+.game-select { /* Used for actionSelector, backgroundSelectorInput etc. */
     padding-right: 25px; 
 }
+
 
 .modal { 
     position: fixed; 
@@ -481,7 +516,7 @@ body {
     vertical-align: middle;
 }
 
-.form-box .checkbox-container {
+.form-box .checkbox-container { /* For API key screen vision checkbox */
     display: flex;
     align-items: center;
     margin-bottom: 18px; 
@@ -678,7 +713,7 @@ body {
     position: fixed;
     top: 20px;
     right: 20px;
-    z-index: 1005; /* Above most game elements, can be adjusted */
+    z-index: 1005; 
     display: flex;
     flex-direction: column;
     gap: 10px;
@@ -698,7 +733,7 @@ body {
     transform: translateX(100%);
     transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
     min-width: 250px;
-    word-wrap: break-word; /* Ensure text wraps */
+    word-wrap: break-word; 
 }
 
 .in-game-notification.fade-in {
@@ -712,20 +747,20 @@ body {
 }
 
 .in-game-notification-success {
-    background-color: rgba(40, 167, 69, 0.95); /* Greenish */
+    background-color: rgba(40, 167, 69, 0.95); 
 }
 
 .in-game-notification-error {
-    background-color: rgba(220, 53, 69, 0.95); /* Reddish */
+    background-color: rgba(220, 53, 69, 0.95); 
 }
 
 .in-game-notification-warning {
-    background-color: rgba(255, 193, 7, 0.95); /* Yellowish */
+    background-color: rgba(255, 193, 7, 0.95); 
     color: #333;
 }
 
 .in-game-notification-info {
-    background-color: rgba(23, 162, 184, 0.95); /* Bluish */
+    background-color: rgba(23, 162, 184, 0.95); 
 }
 
 .in-game-notification span {
@@ -767,14 +802,14 @@ body {
     color: white; 
     text-align: center; 
     font-size: 1.1em;
-    white-space: pre-wrap; /* To respect newlines in message if any */
+    white-space: pre-wrap; 
 }
 #confirmation-buttons {
     display: flex;
     justify-content: space-evenly; 
     gap: 20px;
 }
-#confirmation-buttons .game-button { /* Ensure these are styled as game buttons */
+#confirmation-buttons .game-button { 
     padding: 10px 20px;
     min-width: 120px; 
     font-size: 1em;
@@ -800,7 +835,6 @@ body {
     background-color: #c82333;
 }
 
-/* Ensure the close button for confirmation modal is styled like other modal close buttons */
 #closeConfirmationModalInternalButton {
     color: #ccc; 
     position: absolute;
