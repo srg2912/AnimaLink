@@ -7,6 +7,21 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <!-- In-game Notification Area -->
+    <div id="in-game-notifications-container">
+        <div id="confirmation-modal" class="modal" style="display: none;">
+            <div class="modal-content form-box">
+                <span class="close-button" id="closeConfirmationModalInternalButton">×</span>
+                <h3 id="confirmation-title">Confirm Action</h3>
+                <p id="confirmation-message"></p>
+                <div id="confirmation-buttons">
+                    <button id="confirm-yes-button" class.name="game-button">Yes</button>
+                    <button id="confirm-no-button" class.name="game-button">No</button>
+                </div>
+            </div>
+        </div>        
+    </div>
+
     <!-- Splash Screen -->
     <div id="splash-screen">
         <img id="splash-logo" src="/logo/initial.png" alt="AnimaLink Loading...">

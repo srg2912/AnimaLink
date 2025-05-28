@@ -90,6 +90,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const musicVolumeSlider = document.getElementById('musicVolumeSlider');
     const bgMusicPlayer = document.getElementById('bgMusicPlayer'); 
     
+    // In-game Notification & Confirmation Elements
+    const inGameNotificationsContainer = document.getElementById('in-game-notifications-container');
+    const confirmationModal = document.getElementById('confirmation-modal');
+    const confirmationTitleElement = document.getElementById('confirmation-title');
+    const confirmationMessageElement = document.getElementById('confirmation-message');
+    const confirmYesButton = document.getElementById('confirm-yes-button');
+    const confirmNoButton = document.getElementById('confirm-no-button');
+    const closeConfirmationModalInternalButton = document.getElementById('closeConfirmationModalInternalButton');
+
+
     // --- State Variables ---
     let currentSpriteFolder = '';
     let isUserDataEditing = false;
@@ -106,8 +116,70 @@ document.addEventListener('DOMContentLoaded', () => {
     const DEFAULT_MUSIC_VOLUME = 0.5;
     let initialMusicPlayAttempted = false;
     let userHasInteracted = false;
+    let _resolveConfirmationPromise = null;
+
 
     // --- Helper Functions ---
+
+    function showInGameNotification(message, type = 'info', duration = 5000) {
+        if (!inGameNotificationsContainer) {
+            console.warn("In-game notification container not found. Falling back to console log:", message);
+            // Avoid alert in a function that's supposed to replace alerts
+            // alert(message); 
+            return;
+        }
+
+        const notification = document.createElement('div');
+        notification.classList.add('in-game-notification', `in-game-notification-${type}`);
+        
+        const messageSpan = document.createElement('span');
+        messageSpan.textContent = message;
+        notification.appendChild(messageSpan);
+
+        const closeButton = document.createElement('button');
+        closeButton.innerHTML = '×';
+        closeButton.classList.add('in-game-notification-close');
+        closeButton.onclick = () => {
+            notification.classList.remove('fade-in'); // Start fade out
+            notification.classList.add('fade-out');
+            setTimeout(() => notification.remove(), 300); 
+        };
+        notification.appendChild(closeButton);
+
+        inGameNotificationsContainer.appendChild(notification);
+
+        setTimeout(() => notification.classList.add('fade-in'), 10);
+
+
+        if (duration > 0) {
+            setTimeout(() => {
+                notification.classList.remove('fade-in');
+                notification.classList.add('fade-out');
+                setTimeout(() => notification.remove(), 300); 
+            }, duration);
+        }
+    }
+
+    function showInGameConfirmation(message, title = 'Confirm Action') {
+        return new Promise((resolve) => {
+            _resolveConfirmationPromise = resolve; 
+
+            if (!confirmationModal || !confirmationTitleElement || !confirmationMessageElement || !confirmYesButton || !confirmNoButton) {
+                console.warn("Confirmation modal elements not found. Falling back to window.confirm.");
+                // Fallback to original confirm if critical elements are missing
+                const result = window.confirm(message); 
+                resolve(result);
+                return;
+            }
+
+            confirmationTitleElement.textContent = title;
+            confirmationMessageElement.textContent = message;
+            
+            showModal(confirmationModal); 
+        });
+    }
+
+
     function showScreen(screenId) {
         Object.values(screens).forEach(screen => screen.style.display = 'none');
         if (screens[screenId]) {
@@ -161,8 +233,10 @@ document.addEventListener('DOMContentLoaded', () => {
             element.textContent = finalMessage;
             element.style.display = finalMessage ? 'block' : 'none';
         } else {
-            console.error("Error display element not found. Message:", finalMessage);
-            if (finalMessage) alert(finalMessage); 
+            console.warn("Error display element not found in UI for message:", finalMessage);
+            if (finalMessage) {
+                 showInGameNotification(finalMessage, 'error', 7000); 
+            }
         }
     }
 
@@ -195,26 +269,36 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             if (responseData.parseError) {
+                const errorMsg = `Server returned non-JSON response (Status ${responseData.status}). Check console for details.`;
                 if (!isInitialCheck && errorElement) {
-                    displayError(errorElement, `Server returned non-JSON response (Status ${responseData.status}). Check console for details.`);
+                    displayError(errorElement, errorMsg);
+                } else if (!isInitialCheck) {
+                    showInGameNotification(errorMsg, 'error');
                 }
                 return responseData;
             }
 
             if (!response.ok) {
                 const errorToDisplay = responseData?.error || `Request failed: ${response.status} ${response.statusText}`;
-                if ((!isInitialCheck || (responseData && responseData.error && response.status !== 404)) && errorElement) {
-                    displayError(errorElement, errorToDisplay);
+                if ((!isInitialCheck || (responseData && responseData.error && response.status !== 404))) {
+                    if (errorElement) {
+                        displayError(errorElement, errorToDisplay);
+                    } else {
+                        showInGameNotification(errorToDisplay, 'error');
+                    }
                 }
                 return { ...responseData, error: errorToDisplay }; 
             }
             return responseData;
         } catch (error) {
             console.error(`Network error or other issue in apiRequest for ${url}:`, error);
+            const networkErrorMsg = `Network error: ${error.message}`;
             if (!isInitialCheck && errorElement) {
-                displayError(errorElement, `Network error: ${error.message}`);
+                displayError(errorElement, networkErrorMsg);
+            } else if (!isInitialCheck) {
+                 showInGameNotification(networkErrorMsg, 'error');
             }
-            return { networkError: true, message: error.message, error: `Network error: ${error.message}` };
+            return { networkError: true, message: error.message, error: networkErrorMsg };
         }
     }
 
@@ -314,6 +398,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 changeSprite('normal.png');
                  if (shortTermMemory && shortTermMemory.error) {
+                    // Error already handled by apiRequest or displayError
                  } else if (!Array.isArray(shortTermMemory)) {
                     displayError(errorMessages.gameScreen, "Failed to load chat history: Invalid response from server.");
                 }
@@ -383,6 +468,7 @@ document.addEventListener('DOMContentLoaded', () => {
                  if (charProfileResponse && charProfileResponse.error && !charProfileResponse.notFound) {
                     displayError(errorMessages.characterCreate, `Error fetching character profile: ${charProfileResponse.error}`);
                 } else if (charProfileResponse && (charProfileResponse.notFound || (!charProfileResponse.profile || !charProfileResponse.general?.sprite)) ) {
+                    // This is an expected state if no character is set up, no error needed
                 }
             }
         } else {
@@ -391,6 +477,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (userDataResponse && userDataResponse.error && !userDataResponse.notFound) {
                 displayError(errorMessages.userData, `Error fetching user data: ${userDataResponse.error}`);
             } else if (userDataResponse && userDataResponse.notFound) {
+                // Expected state if no user data, no error needed
             }
         }
         toggleAttachButtonVisibility(); 
@@ -479,6 +566,36 @@ document.addEventListener('DOMContentLoaded', () => {
     function attachEventListeners() {
         document.body.addEventListener('click', markUserInteraction, { capture: true, once: true });
 
+        // Confirmation Modal Buttons
+        if (confirmYesButton && confirmNoButton && closeConfirmationModalInternalButton && confirmationModal) {
+            confirmYesButton.onclick = () => {
+                hideModal(confirmationModal);
+                if (_resolveConfirmationPromise) {
+                    _resolveConfirmationPromise(true);
+                    _resolveConfirmationPromise = null;
+                }
+            };
+
+            confirmNoButton.onclick = () => {
+                hideModal(confirmationModal);
+                if (_resolveConfirmationPromise) {
+                    _resolveConfirmationPromise(false);
+                    _resolveConfirmationPromise = null;
+                }
+            };
+            
+            closeConfirmationModalInternalButton.onclick = () => {
+                hideModal(confirmationModal);
+                if (_resolveConfirmationPromise) {
+                    _resolveConfirmationPromise(false);
+                    _resolveConfirmationPromise = null;
+                }
+            };
+        } else {
+            console.warn("One or more confirmation modal buttons/elements not found. Confirmation will fallback or fail.");
+        }
+
+
         forms.apiKey.addEventListener('submit', async (e) => {
             e.preventDefault();
             markUserInteraction();
@@ -512,7 +629,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 currentUserData = result.name ? result : { ...currentUserData, ...data };
 
                 if (isUserDataEditing) {
-                    alert('User data updated successfully!');
+                    showInGameNotification('User data updated successfully!', 'success');
                     hideModal(optionsModal);
                     isUserDataEditing = false;
                     userDataSubmitButton.textContent = 'Save User Data';
@@ -536,7 +653,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
             
+            characterCreateFormSubmitButton.disabled = true; // Disable button during processing
             const result = await apiRequest('/api/personality', 'POST', data, errorMessages.characterCreate);
+            characterCreateFormSubmitButton.disabled = false; // Re-enable button
+
             if (result && result.characterProfile && !result.error) {
                 currentCharacterPersonalityText = result.characterProfile;
                 const generalInfoResponse = await apiRequest('/api/personality', 'GET', null, errorMessages.characterCreate);
@@ -549,26 +669,77 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 generatedPersonalityTextarea.value = result.characterProfile;
                 characterEditSection.style.display = 'block';
+                continueToGameButtonElement.style.display = 'inline-block';
+                
+                if (isCharacterProfileEditing) {
+                     showInGameNotification('Character details updated and profile regenerated!', 'success');
+                }
+
             }
         });
 
         saveEditedPersonalityButton.addEventListener('click', async () => {
             markUserInteraction();
-            const editedProfile = generatedPersonalityTextarea.value;
-            if (!editedProfile.trim()) {
-                displayError(errorMessages.characterEdit, 'Personality cannot be empty.');
+            const editedProfileText = generatedPersonalityTextarea.value;
+
+            // This validation for the generated profile text is correct and should remain.
+            if (!editedProfileText.trim()) {
+                displayError(errorMessages.characterEdit, 'Generated personality profile text cannot be empty.');
                 return;
             }
-            const result = await apiRequest('/api/personality', 'PATCH', { edit: editedProfile }, errorMessages.characterEdit);
-            if (result && result.characterProfile && !result.error) {
-                currentCharacterPersonalityText = result.characterProfile;
-                alert('Character profile updated!');
-                if (isCharacterProfileEditing) { 
-                    hideModal(optionsModal);
-                    isCharacterProfileEditing = false;
+
+            const patchData = { edit: editedProfileText };
+            const formData = new FormData(forms.characterCreate);
+            const generalDataFromForm = Object.fromEntries(formData.entries());
+
+            // MODIFIED VALIDATION:
+            // Validate required general info fields before sending.
+            // The generalDataFromForm.personality (rawPersonalityInput from charPersonalityDesc)
+            // is NOT strictly required to be non-empty here, as we are primarily saving the
+            // already generated/edited profile text. It will be included in the patchData.general
+            // and sent to the backend (can be an empty string).
+            if (!generalDataFromForm.name?.trim() || 
+                !generalDataFromForm.looks?.trim() || // 'looks' is Character Gender
+                !generalDataFromForm.language?.trim() || 
+                !generalDataFromForm.sprite?.trim()) {
+                displayError(errorMessages.characterEdit, "Cannot save: Core character details (Name, Character Gender, Language, Sprite Folder) are required and cannot be empty.");
+                return;
+            }
+            
+            // Construct the general data part of the payload
+            patchData.general = {
+                name: generalDataFromForm.name,
+                looks: generalDataFromForm.looks,
+                sprite: generalDataFromForm.sprite,
+                language: generalDataFromForm.language,
+                rawPersonalityInput: generalDataFromForm.personality // This is from charPersonalityDesc
+            };
+
+            saveEditedPersonalityButton.disabled = true;
+            const result = await apiRequest('/api/personality', 'PATCH', patchData, errorMessages.characterEdit);
+            saveEditedPersonalityButton.disabled = false;
+
+            if (result && (result.characterProfile || result.message) && !result.error) {
+                if (result.characterProfile) { 
+                    currentCharacterPersonalityText = result.characterProfile;
+                }
+                // Fetch the latest general info to ensure local state is up-to-date
+                const generalInfoResponse = await apiRequest('/api/personality', 'GET', null, errorMessages.characterEdit);
+                if (generalInfoResponse && generalInfoResponse.general) {
+                    currentCharacterSetupData = generalInfoResponse.general;
+                    currentSpriteFolder = generalInfoResponse.general.sprite;
+                }
+
+                showInGameNotification('Character data saved successfully!', 'success');
+
+                if (isCharacterProfileEditing) {
+                    resetCharacterSetupToCreationMode();
+                    isCharacterProfileEditing = false; 
                     await goToGameScreen(true); 
+                    hideModal(optionsModal); 
                 } else {
                     characterEditSection.style.display = 'block'; 
+                    continueToGameButtonElement.style.display = 'inline-block';
                 }
             }
         });
@@ -581,6 +752,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 currentCharacterSetupData.looks = formData.get('looks');
                 currentCharacterSetupData.language = formData.get('language');
                 currentCharacterSetupData.sprite = formData.get('sprite');
+                // rawPersonalityInput should already be set in currentCharacterSetupData if profile was generated
             }
             if (!currentSpriteFolder && forms.characterCreate.sprite.value) {
                 currentSpriteFolder = forms.characterCreate.sprite.value;
@@ -645,12 +817,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const file = event.target.files[0];
             if (file) {
                 if (!['image/png', 'image/jpeg', 'image/gif', 'image/webp'].includes(file.type)) {
-                    alert('Invalid file type. Please select a PNG, JPG, GIF, or WEBP image.');
+                    showInGameNotification('Invalid file type. Please select a PNG, JPG, GIF, or WEBP image.', 'error');
                     imageUploadInput.value = ''; 
                     return;
                 }
                 if (file.size > 7 * 1024 * 1024) { 
-                    alert('File is too large. Please select an image under 7MB.');
+                    showInGameNotification('File is too large. Please select an image under 7MB.', 'error');
                     imageUploadInput.value = '';
                     return;
                 }
@@ -680,7 +852,13 @@ document.addEventListener('DOMContentLoaded', () => {
             supportsVisionCheckbox.checked = visionSupportedByCurrentModel; 
             showModal(optionsModal);
         });
-        closeOptionsModalButton.addEventListener('click', () => hideModal(optionsModal));
+        closeOptionsModalButton.addEventListener('click', () => {
+            if (isCharacterProfileEditing) { // If closing options modal while editing char profile
+                resetCharacterSetupToCreationMode();
+                isCharacterProfileEditing = false; 
+            }
+            hideModal(optionsModal);
+        });
         
         supportsVisionCheckbox.addEventListener('change', async (event) => {
             const newVisionSupportStatus = event.target.checked;
@@ -690,37 +868,48 @@ document.addEventListener('DOMContentLoaded', () => {
                 visionSupportedByCurrentModel = result.supports_vision;
                 apiKeySupportsVisionCheckbox.checked = visionSupportedByCurrentModel; 
                 toggleAttachButtonVisibility();
-                alert(`Vision support ${visionSupportedByCurrentModel ? 'enabled' : 'disabled'}.`);
+                showInGameNotification(`Vision support ${visionSupportedByCurrentModel ? 'enabled' : 'disabled'}.`, 'info');
             } else {
                 supportsVisionCheckbox.checked = visionSupportedByCurrentModel; 
-                alert('Failed to update vision support setting.');
+                showInGameNotification('Failed to update vision support setting.', 'error');
             }
         });
 
         function closeModalOnClickOutside(event) {
-            if (event.target === optionsModal) hideModal(optionsModal);
+            if (event.target === optionsModal) {
+                if (isCharacterProfileEditing) {
+                    resetCharacterSetupToCreationMode();
+                    isCharacterProfileEditing = false;
+                }
+                hideModal(optionsModal);
+            }
             if (event.target === memoryViewerModal) hideModal(memoryViewerModal);
             if (event.target === backgroundSelectorModal) hideModal(backgroundSelectorModal);
             if (event.target === musicSettingsModal) hideModal(musicSettingsModal);
             if (event.target === restoreBackupModal) hideModal(restoreBackupModal);
+            if (event.target === confirmationModal) { 
+                hideModal(confirmationModal);
+                if (_resolveConfirmationPromise) {
+                    _resolveConfirmationPromise(false);
+                    _resolveConfirmationPromise = null;
+                }
+            }
         }
         window.addEventListener('click', closeModalOnClickOutside);
 
         optChangeApiKey.addEventListener('click', async () => {
             hideModal(optionsModal);
             showScreen('apiKey');
-            forms.apiKey.reset();
+            forms.apiKey.reset(); // Reset the form fields
 
             const apiKeyModelInput = document.getElementById('model');
             const apiKeyKeyInput = document.getElementById('key');
             const apiKeyEndpointInput = document.getElementById('endpoint');
 
             try {
-                // Fetch current API key configuration
                 const currentApiKeyConfig = await apiRequest('/api/api_key_data', 'GET', null, errorMessages.apiKey, true);
 
                 if (currentApiKeyConfig && !currentApiKeyConfig.error && !currentApiKeyConfig.notFound) {
-                    // Pre-fill the form with fetched data
                     if (apiKeyModelInput) apiKeyModelInput.value = currentApiKeyConfig.model || '';
                     if (apiKeyKeyInput) apiKeyKeyInput.value = currentApiKeyConfig.key || '';
                     if (apiKeyEndpointInput) apiKeyEndpointInput.value = currentApiKeyConfig.base_url || '';
@@ -733,7 +922,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (apiKeyModelInput) apiKeyModelInput.value = '';
                     if (apiKeyKeyInput) apiKeyKeyInput.value = '';
                     if (apiKeyEndpointInput) apiKeyEndpointInput.value = '';
-                    apiKeySupportsVisionCheckbox.checked = visionSupportedByCurrentModel; // Fallback to global state
+                    apiKeySupportsVisionCheckbox.checked = visionSupportedByCurrentModel; 
                 }
             } catch (error) {
                 console.error("Error fetching API key data for pre-fill:", error);
@@ -741,7 +930,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (apiKeyModelInput) apiKeyModelInput.value = '';
                 if (apiKeyKeyInput) apiKeyKeyInput.value = '';
                 if (apiKeyEndpointInput) apiKeyEndpointInput.value = '';
-                apiKeySupportsVisionCheckbox.checked = visionSupportedByCurrentModel; // Fallback
+                apiKeySupportsVisionCheckbox.checked = visionSupportedByCurrentModel; 
             }
         });
         optChangeUserData.addEventListener('click', () => {
@@ -752,137 +941,65 @@ document.addEventListener('DOMContentLoaded', () => {
             showScreen('userData');
         });
         
-        forms.characterCreate.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            markUserInteraction();
-            const formData = new FormData(forms.characterCreate);
-            const data = Object.fromEntries(formData.entries());
+        optChangeCharProfile.addEventListener('click', async () => {
+            hideModal(optionsModal);
+            isCharacterProfileEditing = true;
 
-            if (!data.name?.trim() || !data.looks?.trim() || !data.personality?.trim() || !data.language?.trim() || !data.sprite?.trim()) {
-                displayError(errorMessages.characterCreate, "All fields with * are required.");
-                return;
+            // Fetch current profile to ensure we're editing the latest
+            const charProfileResponse = await apiRequest('/api/personality', 'GET', null, errorMessages.characterCreate, true);
+            if (charProfileResponse && charProfileResponse.profile && charProfileResponse.general && !charProfileResponse.error) {
+                currentCharacterPersonalityText = charProfileResponse.profile;
+                currentCharacterSetupData = charProfileResponse.general;
+                currentSpriteFolder = charProfileResponse.general.sprite;
+
+                // Pre-fill form fields
+                forms.characterCreate.name.value = currentCharacterSetupData.name || '';
+                forms.characterCreate.looks.value = currentCharacterSetupData.looks || '';
+                forms.characterCreate.personality.value = currentCharacterSetupData.rawPersonalityInput || '';
+                forms.characterCreate.language.value = currentCharacterSetupData.language || 'English';
+                forms.characterCreate.sprite.value = currentCharacterSetupData.sprite || '';
+                generatedPersonalityTextarea.value = currentCharacterPersonalityText;
+                
+                characterEditSection.style.display = 'block';
+                characterCreateFormSubmitButton.textContent = 'Regenerate Character Profile'; // Change button text
+                saveEditedPersonalityButton.textContent = 'Save All Character Data';
+                continueToGameButtonElement.style.display = 'none'; // Hide "Continue to Game" as we're in edit mode
+
+            } else {
+                showInGameNotification('Could not load character profile for editing.', 'error');
+                isCharacterProfileEditing = false; // Reset flag
+                return; // Don't proceed to show the screen if data load failed
             }
-
-            // This POST request will update general.json and regenerate personality.txt
-            const result = await apiRequest('/api/personality', 'POST', data, errorMessages.characterCreate);
-            if (result && result.characterProfile && !result.error) {
-                currentCharacterPersonalityText = result.characterProfile;
-                // Fetch the latest general info as POST updates it
-                const generalInfoResponse = await apiRequest('/api/personality', 'GET', null, errorMessages.characterCreate);
-                if (generalInfoResponse && generalInfoResponse.general) {
-                    currentCharacterSetupData = generalInfoResponse.general;
-                    currentSpriteFolder = generalInfoResponse.general.sprite;
-                } else {
-                    // Fallback: update from form data if GET somehow fails
-                    currentCharacterSetupData = { ...data, rawPersonalityInput: data.personality };
-                    currentSpriteFolder = data.sprite;
-                }
-                generatedPersonalityTextarea.value = result.characterProfile;
-                characterEditSection.style.display = 'block'; // Ensure it remains visible
-
-                if (isCharacterProfileEditing) {
-                    alert('Character details updated and profile regenerated!');
-                    // User stays on this screen to potentially save or further edit
-                }
-            }
+            showScreen('characterSetup');
         });
 
-        saveEditedPersonalityButton.addEventListener('click', async () => {
-            markUserInteraction();
-            const editedProfileText = generatedPersonalityTextarea.value;
-
-            if (!editedProfileText.trim()) {
-                displayError(errorMessages.characterEdit, 'Generated personality profile text cannot be empty.');
-                return;
-            }
-
-            const patchData = { edit: editedProfileText };
-
-            // If in editing mode, also collect general info from the main form
-            // to send along with the PATCH request.
-            const formData = new FormData(forms.characterCreate);
-            const generalDataFromForm = Object.fromEntries(formData.entries());
-
-            // Validate required general info fields before sending
-            if (!generalDataFromForm.name?.trim() || !generalDataFromForm.looks?.trim() ||
-                !generalDataFromForm.personality?.trim() || // raw personality input
-                !generalDataFromForm.language?.trim() || !generalDataFromForm.sprite?.trim()) {
-                displayError(errorMessages.characterEdit, "Cannot save: Core character details (Name, Gender, Personality Description, Language, Sprite Folder) are required and cannot be empty.");
-                return;
-            }
-
-            patchData.general = {
-                name: generalDataFromForm.name,
-                looks: generalDataFromForm.looks,
-                sprite: generalDataFromForm.sprite,
-                language: generalDataFromForm.language,
-                rawPersonalityInput: generalDataFromForm.personality
-            };
-
-            const result = await apiRequest('/api/personality', 'PATCH', patchData, errorMessages.characterEdit);
-
-            if (result && (result.characterProfile || result.message) && !result.error) {
-                if (result.characterProfile) { // Backend might only return a message if only general was updated
-                    currentCharacterPersonalityText = result.characterProfile;
-                }
-                // Fetch the latest general info to ensure local state is up-to-date
-                const generalInfoResponse = await apiRequest('/api/personality', 'GET', null, errorMessages.characterEdit);
-                if (generalInfoResponse && generalInfoResponse.general) {
-                    currentCharacterSetupData = generalInfoResponse.general;
-                    currentSpriteFolder = generalInfoResponse.general.sprite;
-                }
-
-                alert('Character data saved successfully!');
-
-                if (isCharacterProfileEditing) {
-                    // Reset UI for character setup screen to default creation mode
-                    resetCharacterSetupToCreationMode();
-                    isCharacterProfileEditing = false; // Clear editing flag
-                    await goToGameScreen(true); // Go back to game, refresh with new data
-                } else {
-                    // This branch is for initial creation flow after generating and then saving edited profile
-                    characterEditSection.style.display = 'block'; // Keep it visible
-                    // The "Continue to Game" button should be visible here.
-                    continueToGameButtonElement.style.display = 'inline-block';
-                }
-            }
-        });
-
-        // Function to reset character setup screen UI to default creation mode
         function resetCharacterSetupToCreationMode() {
             if (characterCreateFormSubmitButton) {
                 characterCreateFormSubmitButton.textContent = 'Generate Character Profile';
             }
-            saveEditedPersonalityButton.textContent = 'Save Edited Profile';
-            continueToGameButtonElement.style.display = 'inline-block'; // Default for creation flow
-
-            // Only reset the form if not actively editing (e.g., on modal close or new char)
-            // forms.characterCreate.reset();
+            saveEditedPersonalityButton.textContent = 'Save Edited Profile'; // Or "Save Generated Profile"
+            continueToGameButtonElement.style.display = 'inline-block'; // Or 'none' initially, then 'block' after generation
+            
+            // Optional: Clear form fields if truly resetting to "new character" state
+            // forms.characterCreate.reset(); 
             // generatedPersonalityTextarea.value = '';
             
             forms.characterCreate.style.display = 'block';
-             // Hide edit section by default in creation mode, shows after generation
-            characterEditSection.style.display = 'none';
+            characterEditSection.style.display = 'none'; // Hide edit section by default
         }
-
-
-        closeOptionsModalButton.addEventListener('click', () => {
-            if (isCharacterProfileEditing) {
-                resetCharacterSetupToCreationMode();
-                isCharacterProfileEditing = false; // Clear flag
-            }
-            hideModal(optionsModal);
-        });
 
 
         optCreateNewCharacterButton.addEventListener('click', async () => {
             hideModal(optionsModal);
-            const confirmCreateNew = confirm("This will delete the current character's profile, memories, and chat history. Make a backup first if you want to save the current character. Continue to create a new character?");
+            const confirmCreateNew = await showInGameConfirmation(
+                "This will delete the current character's profile, memories, and chat history.\nMake a backup first if you want to save the current character.\n\nContinue to create a new character?",
+                "Create New Character Confirmation"
+            );
             if (!confirmCreateNew) return;
 
             const result = await apiRequest('/api/memory', 'DELETE', null, errorMessages.gameScreen);
             if (result && (result.success || result.status === 204) && !result.error) {
-                alert('Current character data deleted. You will now be taken to the character creation screen.');
+                showInGameNotification('Current character data deleted. You will now be taken to the character creation screen.', 'info', 6000);
                 localStorage.removeItem(LAST_BACKGROUND_KEY);
                 localStorage.removeItem(LAST_MUSIC_TRACK_KEY);
                 localStorage.removeItem(LAST_MUSIC_VOLUME_KEY);
@@ -891,20 +1008,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 initialMusicPlayAttempted = false;
                 userHasInteracted = false;
 
-                currentUserData = {}; // Keep user data unless explicitly changed
+                // currentUserData = {}; // User data should persist unless explicitly changed by user
                 currentCharacterPersonalityText = '';
                 currentCharacterSetupData = {};
                 currentSpriteFolder = '';
                 messageDisplay.innerHTML = '';
                 generatedPersonalityTextarea.value = '';
-                forms.characterCreate.reset(); // Reset the form for new character
+                forms.characterCreate.reset(); 
 
-                resetCharacterSetupToCreationMode(); // Crucially reset UI elements
-                isCharacterProfileEditing = false; // Ensure not in edit mode
+                resetCharacterSetupToCreationMode(); 
+                isCharacterProfileEditing = false; 
 
-                await initializeApp(); // This will guide to user data or char setup
+                await initializeApp(); 
             } else {
-                alert(`Failed to delete current character data: ${result?.error || 'Unknown error'}`);
+                 showInGameNotification(`Failed to delete current character data: ${result?.error || 'Unknown error'}`, 'error');
             }
         });
 
@@ -987,21 +1104,14 @@ document.addEventListener('DOMContentLoaded', () => {
             hideModal(optionsModal);
             markUserInteraction(); 
 
-            // Show diary modal immediately
             showMemory('longTerm'); 
             
-            // Then, trigger the character's reaction in the background
             const interactionApiUrl = '/api/interact/view_diary';
-            // We don't need to await this fully before showing the diary, 
-            // but we do want to handle its response.
             apiRequest(interactionApiUrl, 'POST', {}, errorMessages.gameScreen)
                 .then(result => {
                     handleInteractionResponse(result);
                 })
                 .catch(error => {
-                    // apiRequest itself logs to console and potentially displays via errorMessages.gameScreen
-                    // If additional specific handling is needed here, add it.
-                    // For now, handleInteractionResponse will display a generic error if result is bad.
                     handleInteractionResponse({ error: error.message || "Failed to get character reaction for diary view." });
                 });
         });
@@ -1012,10 +1122,10 @@ document.addEventListener('DOMContentLoaded', () => {
             hideModal(optionsModal);
             const result = await apiRequest('/api/backups/create', 'POST', {}, errorMessages.gameScreen); 
             if (result && result.message && !result.error) {
-                alert(result.message);
+                showInGameNotification(result.message, 'success');
             } else {
-                if (!errorMessages.gameScreen.textContent) {
-                    alert(`Backup creation failed: ${result?.error || 'Unknown error'}`);
+                if (!errorMessages.gameScreen.textContent) { // Only show notification if no specific error display is active
+                    showInGameNotification(`Backup creation failed: ${result?.error || 'Unknown error'}`, 'error');
                 }
             }
         });
@@ -1075,7 +1185,7 @@ document.addEventListener('DOMContentLoaded', () => {
             applyRestoreBackupButton.disabled = false;
 
             if (result && result.message && !result.error) {
-                alert(result.message); 
+                showInGameNotification(result.message, 'success'); 
                 hideModal(restoreBackupModal);
                 await initializeApp(); 
             } else {
@@ -1085,40 +1195,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        optCreateNewCharacterButton.addEventListener('click', async () => {
-            hideModal(optionsModal);
-            const confirmCreateNew = confirm("This will delete the current character's profile, memories, and chat history. Make a backup first if you want to save the current character. Continue to create a new character?");
-            if (!confirmCreateNew) return;
-
-            const result = await apiRequest('/api/memory', 'DELETE', null, errorMessages.gameScreen);
-            if (result && (result.success || result.status === 204) && !result.error) { 
-                alert('Current character data deleted. You will now be taken to the character creation screen.');
-                localStorage.removeItem(LAST_BACKGROUND_KEY); 
-                localStorage.removeItem(LAST_MUSIC_TRACK_KEY); 
-                localStorage.removeItem(LAST_MUSIC_VOLUME_KEY); 
-                bgMusicPlayer.pause(); 
-                bgMusicPlayer.src = ""; 
-                initialMusicPlayAttempted = false; 
-                userHasInteracted = false;
-
-
-                currentUserData = {}; 
-                currentCharacterPersonalityText = '';
-                currentCharacterSetupData = {};
-                currentSpriteFolder = '';
-                messageDisplay.innerHTML = ''; 
-                generatedPersonalityTextarea.value = ''; 
-                forms.characterCreate.reset(); 
-                characterEditSection.style.display = 'none';
-                forms.characterCreate.style.display = 'block';
-                continueToGameButtonElement.style.display = 'inline-block'; 
-                isCharacterProfileEditing = false; 
-
-                await initializeApp(); 
-            } else {
-                alert(`Failed to delete current character data: ${result?.error || 'Unknown error'}`);
-            }
-        });
+        // Removed duplicated optCreateNewCharacterButton listener here
 
         changeBackgroundButton.addEventListener('click', async () => {
             markUserInteraction();
@@ -1160,8 +1237,8 @@ document.addEventListener('DOMContentLoaded', () => {
         applyBackgroundButton.addEventListener('click', async () => {
             markUserInteraction();
             const selectedBackgroundFile = backgroundSelectorInput.value;
-            if (!selectedBackgroundFile) {
-                alert('Please select a background from the list.');
+            if (!selectedBackgroundFile || backgroundSelectorInput.selectedOptions[0]?.disabled) {
+                showInGameNotification('Please select a background from the list.', 'warning');
                 return;
             }
 
@@ -1243,7 +1320,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     window.electronAPI.openModdingFolder();
                 } else {
                     console.error('electronAPI.openModdingFolder is not available. Ensure preload script is correctly configured.');
-                    alert('Error: Could not open modding folder. This feature may not be available.');
+                    showInGameNotification('Error: Could not open modding folder. This feature may not be available.', 'error');
                 }
                 hideModal(optionsModal); 
             });
@@ -1277,6 +1354,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }, FADE_OUT_DURATION);
         }).catch(error => {
             console.error("Error during app initialization or splash sequence:", error);
+            showInGameNotification("Error during app initialization. Please check console.", "error", 0);
             splashScreenElement.style.opacity = '0'; 
              setTimeout(() => {
                 splashScreenElement.style.display = 'none';
@@ -1291,6 +1369,7 @@ document.addEventListener('DOMContentLoaded', () => {
             attachEventListeners();
         }).catch(error => {
             console.error("Error during direct app initialization:", error);
+            showInGameNotification("Error during app initialization. Please check console.", "error", 0);
             document.body.style.backgroundColor = '#FFC5D3'; 
         });
     }
