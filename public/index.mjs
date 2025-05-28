@@ -314,14 +314,21 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             const response = await fetch(url, options);
             
-            if (errorElement) displayError(errorElement, ''); 
+            // Clear error display *only if* an errorElement is provided and it's not an initial check that might be a 404
+            // Or if it is an initial check, but response is OK
+            if (errorElement && (!isInitialCheck || response.ok)) {
+                 displayError(errorElement, ''); 
+            }
+
 
             if (response.status === 204) { 
                 return { success: true, status: response.status };
             }
 
+            // For initial checks, a 404 might be "normal" (e.g., config file not found yet)
+            // We return a specific structure so the caller can decide not to show an error UI.
             if (isInitialCheck && response.status === 404) {
-                const responseDataOnError = await response.json().catch(() => ({ notFound: true, status: 404 }));
+                const responseDataOnError = await response.json().catch(() => ({ notFound: true, status: 404, error: "Resource not found." }));
                 return responseDataOnError; 
             }
 
@@ -333,9 +340,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (responseData.parseError) {
                 const errorMsg = `Server returned non-JSON response (Status ${responseData.status}). Check console for details.`;
-                if (!isInitialCheck && errorElement) {
+                // Only display error if not an initial check where a non-JSON response for a missing file might be expected
+                // or if an errorElement is explicitly provided.
+                if (errorElement) {
                     displayError(errorElement, errorMsg);
-                } else if (!isInitialCheck) {
+                } else if (!isInitialCheck) { // Avoid general notification for initial setup checks if no specific error element
                     showInGameNotification(errorMsg, 'error');
                 }
                 return responseData;
@@ -343,22 +352,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (!response.ok) {
                 const errorToDisplay = responseData?.error || `Request failed: ${response.status} ${response.statusText}`;
-                if ((!isInitialCheck || (responseData && responseData.error && response.status !== 404))) {
-                    if (errorElement) {
-                        displayError(errorElement, errorToDisplay);
-                    } else {
-                        showInGameNotification(errorToDisplay, 'error');
-                    }
+                 // Display error if:
+                 // 1. It's not an initial check (always show errors for regular operations)
+                 // 2. OR it IS an initial check, but it's NOT a 404 (e.g., a 500 error during initial setup is bad)
+                 // 3. OR an errorElement is provided (caller explicitly wants errors here)
+                if (errorElement && (!isInitialCheck || (isInitialCheck && response.status !== 404))) {
+                    displayError(errorElement, errorToDisplay);
+                } else if (!isInitialCheck && !errorElement) { // General notification for non-initial checks if no specific element
+                    showInGameNotification(errorToDisplay, 'error');
                 }
-                return { ...responseData, error: errorToDisplay }; 
+                // For initial checks that are 404, this part is skipped, and `responseDataOnError` from above is returned.
+                return { ...responseData, error: errorToDisplay, status: response.status }; 
             }
-            return responseData;
+            return responseData; // Successful response with JSON body
         } catch (error) {
             console.error(`Network error or other issue in apiRequest for ${url}:`, error);
-            const networkErrorMsg = `Network error: ${error.message}`;
-            if (!isInitialCheck && errorElement) {
+            const networkErrorMsg = `Network error: ${error.message}. Check if the server is running.`;
+            if (errorElement) { // Always show network errors if an element is provided
                 displayError(errorElement, networkErrorMsg);
-            } else if (!isInitialCheck) {
+            } else if (!isInitialCheck) { // Avoid general notification for initial setup checks if no specific error element
                  showInGameNotification(networkErrorMsg, 'error');
             }
             return { networkError: true, message: error.message, error: networkErrorMsg };
@@ -450,16 +462,16 @@ document.addEventListener('DOMContentLoaded', () => {
             if (shortTermMemory && Array.isArray(shortTermMemory) && shortTermMemory.length > 0) {
                 const lastAssistantMessage = [...shortTermMemory].reverse().find(msg => msg.role === 'assistant');
                 if (lastAssistantMessage && lastAssistantMessage.sprite) {
-                    changeSprite(lastAssistantMessage.sprite); // Uses currentSpriteFolder
+                    changeSprite(lastAssistantMessage.sprite); 
                 } else {
-                    changeSprite('normal.png'); // Uses currentSpriteFolder
+                    changeSprite('normal.png'); 
                 }
                 shortTermMemory.slice(-10).forEach(msg => {
                     addMessageToDisplay(msg.role, msg.content, msg.image_data);
                 });
 
             } else {
-                changeSprite('normal.png'); // Uses currentSpriteFolder
+                changeSprite('normal.png'); 
                  if (shortTermMemory && shortTermMemory.error) {
                     // Error already handled
                  } else if (!Array.isArray(shortTermMemory)) {
@@ -467,7 +479,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         } else {
-            changeSprite('normal.png'); // Uses currentSpriteFolder
+            changeSprite('normal.png'); 
         }
         showScreen('game');
     }
@@ -498,9 +510,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (!apiKeyStatusResponse.configured) {
             showScreen('apiKey');
-            if (apiKeyStatusResponse.message && apiKeyStatusResponse.message !== 'API Key is configured.') { 
-                displayError(errorMessages.apiKey, apiKeyStatusResponse.message);
-            }
+            // Don't display an error message here by default, as it's normal for the first run.
+            // The screen itself indicates the need for configuration.
+            // if (apiKeyStatusResponse.message && apiKeyStatusResponse.message !== 'API Key is configured.') { 
+            //     displayError(errorMessages.apiKey, apiKeyStatusResponse.message);
+            // }
             return;
         }
 
@@ -521,26 +535,21 @@ document.addEventListener('DOMContentLoaded', () => {
                     forms.characterCreate.looks.value = currentCharacterSetupData.looks || '';
                     forms.characterCreate.personality.value = currentCharacterSetupData.rawPersonalityInput || ''; 
                     forms.characterCreate.language.value = currentCharacterSetupData.language || 'English';
-                    // charSpriteFolderSelector value set by populateSpriteFolderSelector IF character edit screen is shown later
                 }
                 
                 await goToGameScreen(true); 
             } else {
                 prefillUserDataForm(); 
                 showScreen('characterSetup'); 
-                 if (charProfileResponse && charProfileResponse.error && !charProfileResponse.notFound) {
+                 if (charProfileResponse && charProfileResponse.error && !charProfileResponse.notFound) { // Not a 404 means an actual error
                     displayError(errorMessages.characterCreate, `Error fetching character profile: ${charProfileResponse.error}`);
-                } else if (charProfileResponse && (charProfileResponse.notFound || (!charProfileResponse.profile || !charProfileResponse.general?.sprite)) ) {
-                    // Expected state
                 }
             }
         } else {
             prefillUserDataForm(); 
             showScreen('userData'); 
-            if (userDataResponse && userDataResponse.error && !userDataResponse.notFound) {
+            if (userDataResponse && userDataResponse.error && !userDataResponse.notFound) { // Not a 404 means an actual error
                 displayError(errorMessages.userData, `Error fetching user data: ${userDataResponse.error}`);
-            } else if (userDataResponse && userDataResponse.notFound) {
-                // Expected state
             }
         }
         toggleAttachButtonVisibility(); 
@@ -721,12 +730,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (result && result.characterProfile && !result.error) {
                 currentCharacterPersonalityText = result.characterProfile;
-                // Fetch general info again to ensure client state is perfectly synced, especially sprite name
                 const generalInfoResponse = await apiRequest('/api/personality', 'GET', null, errorMessages.characterCreate);
                 if (generalInfoResponse && generalInfoResponse.general) {
                     currentCharacterSetupData = generalInfoResponse.general;
                     currentSpriteFolder = generalInfoResponse.general.sprite; 
-                } else { // Fallback if GET fails, though it shouldn't if POST succeeded
+                } else { 
                     currentCharacterSetupData = { ...data, rawPersonalityInput: data.personality };
                     currentSpriteFolder = data.sprite; 
                 }
@@ -734,9 +742,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 characterEditSection.style.display = 'block';
                 continueToGameButtonElement.style.display = 'inline-block';
                 
-                if (isCharacterProfileEditing) { // This block might run if "Regenerate" was clicked
+                if (isCharacterProfileEditing) { 
                      showInGameNotification('Character details updated and profile regenerated!', 'success');
-                     // No need to navigate to game screen yet, user might want to save or regenerate again.
                 }
             }
         });
@@ -744,17 +751,6 @@ document.addEventListener('DOMContentLoaded', () => {
         saveEditedPersonalityButton.addEventListener('click', async () => {
             markUserInteraction();
             const editedProfileText = generatedPersonalityTextarea.value;
-
-            // Profile text can be empty if user wants to clear it and regenerate based on form inputs only.
-            // However, if it's non-empty, it should be trimmed.
-            // If profile text IS empty, the backend should not try to save an empty string to personality.txt.
-            // The backend PATCH handles this: if 'edit' is not provided, it doesn't update personality.txt.
-            // Here, we always send `edit: editedProfileText`. If it's empty, backend logic should be robust.
-            // For now, let's keep the frontend validation that it cannot be empty IF it's the *only* thing being saved.
-            // But since we are saving general data too, maybe an empty profile text is fine IF general data is provided.
-            // Let's assume for now that editedProfileText should not be empty if user *intends* to save it.
-            // If "Regenerate" was clicked, this `editedProfileText` would be the newly generated one.
-
             const formData = new FormData(forms.characterCreate);
             const generalDataFromForm = Object.fromEntries(formData.entries());
 
@@ -770,16 +766,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-
             const patchData = { 
-                edit: editedProfileText.trim() // Send trimmed profile, or empty if user cleared it
+                edit: editedProfileText.trim() 
             };
             patchData.general = {
                 name: generalDataFromForm.name,
                 looks: generalDataFromForm.looks,
                 sprite: generalDataFromForm.sprite,
                 language: generalDataFromForm.language,
-                rawPersonalityInput: generalDataFromForm.personality // This is the original user input
+                rawPersonalityInput: generalDataFromForm.personality 
             };
 
             saveEditedPersonalityButton.disabled = true;
@@ -787,16 +782,14 @@ document.addEventListener('DOMContentLoaded', () => {
             saveEditedPersonalityButton.disabled = false;
 
             if (result && (result.characterProfile !== undefined || result.message) && !result.error) {
-                // Update client state with response from PATCH
                 if (result.characterProfile !== undefined) { 
                     currentCharacterPersonalityText = result.characterProfile;
-                    generatedPersonalityTextarea.value = result.characterProfile; // Update textarea if backend returned it
+                    generatedPersonalityTextarea.value = result.characterProfile; 
                 }
                 if (result.general) {
                     currentCharacterSetupData = result.general;
                     currentSpriteFolder = result.general.sprite;
                 } else { 
-                    // Fallback: if PATCH didn't return general, fetch it
                     const generalInfoResponse = await apiRequest('/api/personality', 'GET', null, errorMessages.characterEdit);
                     if (generalInfoResponse && generalInfoResponse.general) {
                         currentCharacterSetupData = generalInfoResponse.general;
@@ -809,9 +802,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (isCharacterProfileEditing) {
                     resetCharacterSetupToCreationMode(); 
                     isCharacterProfileEditing = false; 
-                    await goToGameScreen(true); // Load game with updated char, sprite will be normal.png of new folder initially
+                    await goToGameScreen(true); 
                     hideModal(optionsModal); 
-                } else { // This case is less likely if saveEditedPersonalityButton is only visible in edit mode
+                } else { 
                     characterEditSection.style.display = 'block'; 
                     continueToGameButtonElement.style.display = 'inline-block';
                 }
@@ -820,13 +813,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         continueToGameButtonElement.addEventListener('click', async () => {
             markUserInteraction();
-            // This button is mainly for after *initial* generation if not in edit mode.
-            // currentCharacterSetupData should be set from the POST response.
-            // currentSpriteFolder should also be set.
-
             if (!currentCharacterSetupData.name || !currentCharacterSetupData.sprite) { 
-                // This might happen if the POST somehow failed to set client state, or if flow is unexpected.
-                // Try to get from form as a last resort.
                 const formData = new FormData(forms.characterCreate);
                 currentCharacterSetupData.name = formData.get('name');
                 currentCharacterSetupData.looks = formData.get('looks');
@@ -840,7 +827,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 displayError(errorMessages.characterEdit, "Sprite folder is missing. Please select a sprite folder and generate/save the profile. Cannot continue.");
                 return;
             }
-            await goToGameScreen(false); // false: it's a "new" game session from setup
+            await goToGameScreen(false); 
         });
 
 
@@ -977,37 +964,50 @@ document.addEventListener('DOMContentLoaded', () => {
         optChangeApiKey.addEventListener('click', async () => {
             hideModal(optionsModal);
             showScreen('apiKey');
-            forms.apiKey.reset(); 
+            forms.apiKey.reset();
+            // Clear previous error explicitly when opening this form
+            displayError(errorMessages.apiKey, ''); 
 
             const apiKeyModelInput = document.getElementById('model');
             const apiKeyKeyInput = document.getElementById('key');
             const apiKeyEndpointInput = document.getElementById('endpoint');
 
             try {
-                const currentApiKeyConfig = await apiRequest('/api/api_key_data', 'GET', null, errorMessages.apiKey, true);
+                // Pass null for errorElement because we don't want to show an error
+                // if the config is simply not found (isInitialCheck = true handles this).
+                const currentApiKeyConfig = await apiRequest('/api/api_key_data', 'GET', null, null, true);
 
                 if (currentApiKeyConfig && !currentApiKeyConfig.error && !currentApiKeyConfig.notFound) {
                     if (apiKeyModelInput) apiKeyModelInput.value = currentApiKeyConfig.model || '';
-                    if (apiKeyKeyInput) apiKeyKeyInput.value = currentApiKeyConfig.key || '';
+                    if (apiKeyKeyInput) apiKeyKeyInput.value = currentApiKeyConfig.key || ''; // Will likely be empty or masked
                     if (apiKeyEndpointInput) apiKeyEndpointInput.value = currentApiKeyConfig.base_url || '';
                     apiKeySupportsVisionCheckbox.checked = currentApiKeyConfig.supports_vision !== undefined 
                         ? currentApiKeyConfig.supports_vision 
                         : visionSupportedByCurrentModel;
-
-                } else if (currentApiKeyConfig && (currentApiKeyConfig.error || currentApiKeyConfig.notFound)) {
-                    console.warn("Could not pre-fill API key form. Config not found or error:", currentApiKeyConfig.error || "Not found");
+                } else if (currentApiKeyConfig && currentApiKeyConfig.error && !currentApiKeyConfig.notFound) {
+                    // This case is for actual errors (e.g., malformed file, server error), not just "not found"
+                    console.error("Error fetching API key data for pre-fill:", currentApiKeyConfig.error);
+                    displayError(errorMessages.apiKey, `Could not load current API key settings: ${currentApiKeyConfig.error}`);
+                    // Reset form fields to ensure no stale data
                     if (apiKeyModelInput) apiKeyModelInput.value = '';
                     if (apiKeyKeyInput) apiKeyKeyInput.value = '';
                     if (apiKeyEndpointInput) apiKeyEndpointInput.value = '';
                     apiKeySupportsVisionCheckbox.checked = visionSupportedByCurrentModel; 
+                } else {
+                    // Config not found or empty (expected for first run), so just ensure form is clear.
+                    // console.log("API key config not found or empty. Form will be blank."); // Informative, not an error
+                    if (apiKeyModelInput) apiKeyModelInput.value = '';
+                    if (apiKeyKeyInput) apiKeyKeyInput.value = '';
+                    if (apiKeyEndpointInput) apiKeyEndpointInput.value = '';
+                    apiKeySupportsVisionCheckbox.checked = visionSupportedByCurrentModel; // Default to current state
                 }
-            } catch (error) {
-                console.error("Error fetching API key data for pre-fill:", error);
-                displayError(errorMessages.apiKey, "Could not load current API key settings to pre-fill the form.");
+            } catch (error) { // Catch network errors from apiRequest itself
+                console.error("Network or other error fetching API key data for pre-fill:", error);
+                displayError(errorMessages.apiKey, "Could not load current API key settings due to a network or system error.");
                 if (apiKeyModelInput) apiKeyModelInput.value = '';
                 if (apiKeyKeyInput) apiKeyKeyInput.value = '';
                 if (apiKeyEndpointInput) apiKeyEndpointInput.value = '';
-                apiKeySupportsVisionCheckbox.checked = visionSupportedByCurrentModel; 
+                apiKeySupportsVisionCheckbox.checked = visionSupportedByCurrentModel;
             }
         });
         optChangeUserData.addEventListener('click', () => {
@@ -1055,7 +1055,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 characterCreateFormSubmitButton.textContent = 'Generate Character Profile';
             }
             saveEditedPersonalityButton.textContent = 'Save Edited Profile'; 
-            // continueToGameButtonElement.style.display = 'inline-block'; // Should be hidden initially
             continueToGameButtonElement.style.display = 'none';
             
             forms.characterCreate.reset(); 
