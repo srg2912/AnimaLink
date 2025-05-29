@@ -53,26 +53,42 @@
         <div id="user-data-screen" class="screen form-box" style="display: none;">
              <h2>Your Information</h2>
             <form id="userDataForm">
-                <label for="userName">Name*:</label>
-                <input type="text" id="userName" name="name" placeholder="Your Name" required><br>
-                <label for="gender">Gender*:</label>
-                <input type="text" id="gender" name="gender" placeholder="Your Gender" required><br>
-                <label for="pronouns">Pronouns*:</label>
-                <input type="text" id="pronouns" name="pronouns" placeholder="e.g., she/her, he/him, they/them" required><br>
-                <label for="age">Age:</label>
-                <input type="number" id="age" name="age" placeholder="Your Age (Optional)"><br>
-                <label for="nickname">Nickname:</label>
-                <input type="text" id="nickname" name="nickname" placeholder="Nickname (Optional)"><br>
-                <label for="hobbies">Hobbies (comma-separated):</label>
-                <input type="text" id="hobbies" name="hobbies" placeholder="e.g., reading, gaming (Optional)"><br>
-                <label for="userPersonality">Your Personality (briefly):</label>
-                <input type="text" id="userPersonality" name="personality" placeholder="A short description (Optional)"><br>
+                <div class="form-columns-wrapper">
+                    <div class="form-field-item">
+                        <label for="userName">Name*:</label>
+                        <input type="text" id="userName" name="name" placeholder="Your Name" required>
+                    </div>
+                    <div class="form-field-item">
+                        <label for="nickname">Nickname:</label>
+                        <input type="text" id="nickname" name="nickname" placeholder="Nickname (Optional)">
+                    </div>
+                    <div class="form-field-item">
+                        <label for="gender">Gender*:</label>
+                        <input type="text" id="gender" name="gender" placeholder="Your Gender" required>
+                    </div>
+                    <div class="form-field-item">
+                        <label for="pronouns">Pronouns*:</label>
+                        <input type="text" id="pronouns" name="pronouns" placeholder="e.g., she/her, he/him, they/them" required>
+                    </div>
+                    <div class="form-field-item">
+                        <label for="age">Age:</label>
+                        <input type="number" id="age" name="age" placeholder="Your Age (Optional)">
+                    </div>
+                    <div class="form-field-item">
+                        <label for="hobbies">Hobbies (comma-separated):</label>
+                        <input type="text" id="hobbies" name="hobbies" placeholder="e.g., reading, gaming (Optional)">
+                    </div>
+                    <div class="form-field-item form-field-full-width">
+                        <label for="userPersonality">Your Personality (briefly):</label>
+                        <input type="text" id="userPersonality" name="personality" placeholder="A short description (Optional)">
+                    </div>
+                </div>
                 <button type="submit" id="userDataSubmitButton">Save User Data</button>
             </form>
             <p class="error-message" id="userDataError"></p>
         </div>
 
-        <!-- Character Choice Screen (NEW) -->
+        <!-- Character Choice Screen -->
         <div id="character-choice-screen" class="screen form-box" style="display: none;">
             <h2>Character Setup</h2>
             <p>Would you like to create a new character or restore an existing one?</p>
