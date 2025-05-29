@@ -116,7 +116,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const DEFAULT_MUSIC_TRACK = 'Simple Piano Melody.mp3';
     const DEFAULT_MUSIC_VOLUME = 0.5;
     let initialMusicPlayAttempted = false;
-    let userHasInteracted = false; // This will still be useful for retrying play on first *explicit* click
+    let userHasInteracted = false;
     let _resolveConfirmationPromise = null;
 
 
@@ -257,10 +257,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (screenId === 'characterSetup' && !isCharacterProfileEditing) {
                 populateSpriteFolderSelector(); 
             }
-
-            toggleAttachButtonVisibility();
-            // Music play attempt is now handled after splash screen in initializeApp flow
-            // or by user interaction, not tied to specific screen.
+            // toggleAttachButtonVisibility is now called after showScreen in initializeApp and other state-changing handlers
         } else {
             console.error("Screen not found:", screenId);
         }
@@ -428,7 +425,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    async function goToGameScreen(loadingExisting = false) {
+    async function goToGameScreen(isNewCharacterSetup = false) {
         if (!currentSpriteFolder && currentCharacterSetupData && currentCharacterSetupData.sprite) {
             currentSpriteFolder = currentCharacterSetupData.sprite;
         }
@@ -443,7 +440,9 @@ document.addEventListener('DOMContentLoaded', () => {
         backgroundImage.src = lastBg ? `/assets/backgrounds/${lastBg}` : '/assets/backgrounds/living_room.png';
         
         messageDisplay.innerHTML = '';
-        if (loadingExisting) {
+        if (isNewCharacterSetup) {
+            changeSprite('normal.png'); 
+        } else {
             const shortTermMemory = await apiRequest('/api/memory/short_term', 'GET', null, errorMessages.gameScreen);
             if (shortTermMemory && Array.isArray(shortTermMemory) && shortTermMemory.length > 0) {
                 const lastAssistantMessage = [...shortTermMemory].reverse().find(msg => msg.role === 'assistant');
@@ -464,33 +463,28 @@ document.addEventListener('DOMContentLoaded', () => {
                     displayError(errorMessages.gameScreen, "Failed to load chat history: Invalid response from server.");
                 }
             }
-        } else {
-            changeSprite('normal.png'); 
         }
-        showScreen('game');
+        showScreen('game'); // This will also set body to black
     }
 
-    async function initializeAppCoreLogic() {
-        // This function contains the main app logic after splash/initial music attempt
+    async function determineInitialScreenAndPrepareData() {
         const apiKeyStatusResponse = await apiRequest('/api/status/api_key', 'GET', null, null, true);
 
         if (!apiKeyStatusResponse || apiKeyStatusResponse.networkError) {
-            showScreen('apiKey'); 
-             if (apiKeyStatusResponse && apiKeyStatusResponse.message) {
+            if (apiKeyStatusResponse && apiKeyStatusResponse.message) {
                  displayError(errorMessages.apiKey, `Network error checking API status: ${apiKeyStatusResponse.message}`);
             } else {
                  displayError(errorMessages.apiKey, "Could not connect to server to check API status.");
             }
-            return;
+            return 'apiKey';
         }
         
         visionSupportedByCurrentModel = apiKeyStatusResponse.supports_vision || false;
-        supportsVisionCheckbox.checked = visionSupportedByCurrentModel;
-        apiKeySupportsVisionCheckbox.checked = visionSupportedByCurrentModel;
+        if(supportsVisionCheckbox) supportsVisionCheckbox.checked = visionSupportedByCurrentModel;
+        if(apiKeySupportsVisionCheckbox) apiKeySupportsVisionCheckbox.checked = visionSupportedByCurrentModel;
 
         if (!apiKeyStatusResponse.configured) {
-            showScreen('apiKey');
-            return;
+            return 'apiKey';
         }
 
         const userDataResponse = await apiRequest('/api/user_data', 'GET', null, null, true); 
@@ -504,7 +498,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 currentCharacterSetupData = charProfileResponse.general; 
                 currentSpriteFolder = charProfileResponse.general.sprite;
                 
-                generatedPersonalityTextarea.value = currentCharacterPersonalityText;
+                if (generatedPersonalityTextarea) generatedPersonalityTextarea.value = currentCharacterPersonalityText;
                 if (forms.characterCreate && forms.characterCreate.name) { 
                     forms.characterCreate.name.value = currentCharacterSetupData.name || '';
                     forms.characterCreate.looks.value = currentCharacterSetupData.looks || '';
@@ -512,22 +506,46 @@ document.addEventListener('DOMContentLoaded', () => {
                     forms.characterCreate.language.value = currentCharacterSetupData.language || 'English';
                 }
                 
-                await goToGameScreen(true); 
+                // Prepare game screen data (moved from goToGameScreen's "loadingExisting" path)
+                const lastBg = localStorage.getItem(LAST_BACKGROUND_KEY);
+                if (backgroundImage) backgroundImage.src = lastBg ? `/assets/backgrounds/${lastBg}` : '/assets/backgrounds/living_room.png';
+                
+                if (messageDisplay) messageDisplay.innerHTML = '';
+                const shortTermMemory = await apiRequest('/api/memory/short_term', 'GET', null, errorMessages.gameScreen);
+                if (shortTermMemory && Array.isArray(shortTermMemory) && shortTermMemory.length > 0) {
+                    const lastAssistantMessage = [...shortTermMemory].reverse().find(msg => msg.role === 'assistant');
+                    if (lastAssistantMessage && lastAssistantMessage.sprite) {
+                        await changeSprite(lastAssistantMessage.sprite); 
+                    } else {
+                        await changeSprite('normal.png'); 
+                    }
+                    shortTermMemory.slice(-10).forEach(msg => {
+                        addMessageToDisplay(msg.role, msg.content, msg.image_data);
+                    });
+                } else {
+                    await changeSprite('normal.png'); 
+                     if (shortTermMemory && shortTermMemory.error) {
+                        // Error already handled by apiRequest
+                     } else if (shortTermMemory && !Array.isArray(shortTermMemory)) { // Check if shortTermMemory exists before !Array.isArray
+                        displayError(errorMessages.gameScreen, "Failed to load chat history: Invalid response from server.");
+                    }
+                }
+                return 'game';
+
             } else {
                 prefillUserDataForm(); 
-                showScreen('characterSetup'); 
                  if (charProfileResponse && charProfileResponse.error && !charProfileResponse.notFound) { 
                     displayError(errorMessages.characterCreate, `Error fetching character profile: ${charProfileResponse.error}`);
                 }
+                return 'characterSetup';
             }
         } else {
             prefillUserDataForm(); 
-            showScreen('userData'); 
             if (userDataResponse && userDataResponse.error && !userDataResponse.notFound) { 
                 displayError(errorMessages.userData, `Error fetching user data: ${userDataResponse.error}`);
             }
+            return 'userData';
         }
-        toggleAttachButtonVisibility();
     }
 
 
@@ -535,21 +553,25 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!trackFilename || !bgMusicPlayer) return;
         
         const newSrc = `/assets/bg_music/${trackFilename}`;
-        if (bgMusicPlayer.src !== newSrc || bgMusicPlayer.paused) {
+        // Check if src is different or if it's the same but paused (might happen if user stops it)
+        if (!bgMusicPlayer.src.endsWith(newSrc) || bgMusicPlayer.paused) {
             bgMusicPlayer.src = newSrc;
         }
         bgMusicPlayer.volume = volume;
-        bgMusicPlayer.currentTime = 0; 
+         if(bgMusicPlayer.readyState >= 2 && bgMusicPlayer.currentTime > 0 && bgMusicPlayer.src.endsWith(newSrc)) {
+            // If it's the same track and already playing, don't reset currentTime unless specifically needed
+        } else {
+            bgMusicPlayer.currentTime = 0; 
+        }
+
 
         const playPromise = bgMusicPlayer.play();
         if (playPromise !== undefined) {
             playPromise.then(_ => {
-                // initialMusicPlayAttempted is set by playInitialMusic
-                userHasInteracted = true; // If music plays, user interaction is implied for future plays
+                userHasInteracted = true; 
                 console.log("Music playing:", trackFilename);
             }).catch(error => {
                 console.warn("Music play failed for track:", trackFilename, error);
-                // initialMusicPlayAttempted remains true if set by playInitialMusic
             });
         }
     }
@@ -579,17 +601,14 @@ document.addEventListener('DOMContentLoaded', () => {
         bgMusicPlayer.src = `/assets/bg_music/${lastTrack}`;
         bgMusicPlayer.volume = lastVolume;
         
-        // A small delay can sometimes help with autoplay in Electron environments
         setTimeout(() => {
             const playPromise = bgMusicPlayer.play();
             if (playPromise !== undefined) {
                 playPromise.then(() => {
-                    userHasInteracted = true; // Assume interaction if autoplay succeeds
+                    userHasInteracted = true; 
                     console.log("Initial music started:", lastTrack);
                 }).catch(error => {
                     console.warn("Initial music autoplay failed:", error.name, error.message);
-                    // Don't set userHasInteracted to false here, as it's about the *initial* attempt.
-                    // The userInteraction flag is for subsequent explicit clicks.
                 });
             }
         }, 100); 
@@ -599,7 +618,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!userHasInteracted) {
             console.log("User interaction detected.");
             userHasInteracted = true;
-            // If music was attempted but failed due to autoplay, try playing now.
             if (bgMusicPlayer && bgMusicPlayer.paused && bgMusicPlayer.src && initialMusicPlayAttempted) {
                  console.log("Retrying music playback after user interaction.");
                  const playPromise = bgMusicPlayer.play();
@@ -607,7 +625,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     playPromise.catch(e => console.warn("Playback attempt after explicit interaction mark failed:", e));
                  }
             } else if (bgMusicPlayer && !bgMusicPlayer.src && !initialMusicPlayAttempted) {
-                // This case should be rare if playInitialMusic is called early
                 console.log("Music source not set and not attempted, playing initial music now due to interaction.");
                 playInitialMusic();
             }
@@ -618,7 +635,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (result && result.content) {
             addMessageToDisplay('assistant', result.content);
             if (result.sprite) {
-                changeSprite(result.sprite);
+                await changeSprite(result.sprite);
             }
             if (errorMessages.gameScreen) displayError(errorMessages.gameScreen, ''); 
         } else {
@@ -630,11 +647,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function attachEventListeners() {
-        // Universal click listener for marking user interaction (helps with audio autoplay)
-        // { capture: true, once: true } ensures it runs early and only once for this purpose.
-        document.body.addEventListener('click', markUserInteraction, { capture: true, once: true });
+    async function refreshCurrentScreenState() {
+        const nextScreen = await determineInitialScreenAndPrepareData();
+        showScreen(nextScreen);
+        toggleAttachButtonVisibility(); // Ensure UI updates like attach button are correct
+    }
 
+
+    function attachEventListeners() {
+        document.body.addEventListener('click', markUserInteraction, { capture: true, once: true });
 
         if (confirmYesButton && confirmNoButton && closeConfirmationModalInternalButton && confirmationModal) {
             confirmYesButton.onclick = () => {
@@ -674,8 +695,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const result = await apiRequest('/api/api_key', 'POST', data, errorMessages.apiKey); 
             if (result && result.model && !result.error) { 
                 visionSupportedByCurrentModel = result.supports_vision || false;
-                supportsVisionCheckbox.checked = visionSupportedByCurrentModel;
-                await initializeAppCoreLogic(); 
+                if (supportsVisionCheckbox) supportsVisionCheckbox.checked = visionSupportedByCurrentModel;
+                await refreshCurrentScreenState();
             }
         });
 
@@ -700,10 +721,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     hideModal(optionsModal);
                     isUserDataEditing = false;
                     userDataSubmitButton.textContent = 'Save User Data';
-                    await initializeAppCoreLogic(); 
-                } else {
-                    showScreen('characterSetup');
                 }
+                await refreshCurrentScreenState();
             } else if (!result) {
                 displayError(errorMessages.userData, "Failed to save user data. Unknown error.");
             }
@@ -796,7 +815,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (isCharacterProfileEditing) {
                     resetCharacterSetupToCreationMode(); 
                     isCharacterProfileEditing = false; 
-                    await goToGameScreen(true); 
+                    await goToGameScreen(false); 
                     hideModal(optionsModal); 
                 } else { 
                     characterEditSection.style.display = 'block'; 
@@ -820,7 +839,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 displayError(errorMessages.characterEdit, "Sprite folder is missing. Please select a sprite folder and generate/save the profile. Cannot continue.");
                 return;
             }
-            await goToGameScreen(false); 
+            await goToGameScreen(true); 
         });
 
 
@@ -844,7 +863,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             sendMessageButton.disabled = false;
             if (visionSupportedByCurrentModel) attachImageButton.disabled = false;
-            handleInteractionResponse(result);
+            await handleInteractionResponse(result);
         });
         userMessageInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) { 
@@ -860,7 +879,7 @@ document.addEventListener('DOMContentLoaded', () => {
             performActionButton.disabled = true;
             const result = await apiRequest(`/api/interact/${selectedAction}`, 'POST', {}, errorMessages.gameScreen);
             performActionButton.disabled = false;
-            handleInteractionResponse(result);
+            await handleInteractionResponse(result);
         });
 
         attachImageButton.addEventListener('click', () => {
@@ -902,7 +921,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
         optionsButton.addEventListener('click', () => {
-            supportsVisionCheckbox.checked = visionSupportedByCurrentModel; 
+            if(supportsVisionCheckbox) supportsVisionCheckbox.checked = visionSupportedByCurrentModel; 
             showModal(optionsModal);
         });
         closeOptionsModalButton.addEventListener('click', () => {
@@ -919,7 +938,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if (result && result.supports_vision !== undefined && !result.error) {
                 visionSupportedByCurrentModel = result.supports_vision;
-                apiKeySupportsVisionCheckbox.checked = visionSupportedByCurrentModel; 
+                if(apiKeySupportsVisionCheckbox) apiKeySupportsVisionCheckbox.checked = visionSupportedByCurrentModel; 
                 toggleAttachButtonVisibility();
                 showInGameNotification(`Vision support ${visionSupportedByCurrentModel ? 'enabled' : 'disabled'}.`, 'info');
             } else {
@@ -967,37 +986,28 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (apiKeyModelInput) apiKeyModelInput.value = currentApiKeyConfig.model || '';
                     if (apiKeyKeyInput) apiKeyKeyInput.value = currentApiKeyConfig.key || ''; 
                     if (apiKeyEndpointInput) apiKeyEndpointInput.value = currentApiKeyConfig.base_url || '';
-                    apiKeySupportsVisionCheckbox.checked = currentApiKeyConfig.supports_vision !== undefined 
+                    if(apiKeySupportsVisionCheckbox) apiKeySupportsVisionCheckbox.checked = currentApiKeyConfig.supports_vision !== undefined 
                         ? currentApiKeyConfig.supports_vision 
                         : visionSupportedByCurrentModel;
                 } else if (currentApiKeyConfig && currentApiKeyConfig.error && !currentApiKeyConfig.notFound) {
                     console.error("Error fetching API key data for pre-fill:", currentApiKeyConfig.error);
                     displayError(errorMessages.apiKey, `Could not load current API key settings: ${currentApiKeyConfig.error}`);
-                    if (apiKeyModelInput) apiKeyModelInput.value = '';
-                    if (apiKeyKeyInput) apiKeyKeyInput.value = '';
-                    if (apiKeyEndpointInput) apiKeyEndpointInput.value = '';
-                    apiKeySupportsVisionCheckbox.checked = visionSupportedByCurrentModel; 
-                } else {
-                    if (apiKeyModelInput) apiKeyModelInput.value = '';
-                    if (apiKeyKeyInput) apiKeyKeyInput.value = '';
-                    if (apiKeyEndpointInput) apiKeyEndpointInput.value = '';
-                    apiKeySupportsVisionCheckbox.checked = visionSupportedByCurrentModel; 
                 }
+                 // Ensure checkbox reflects current state even if prefill fails or no data
+                if(apiKeySupportsVisionCheckbox) apiKeySupportsVisionCheckbox.checked = visionSupportedByCurrentModel;
             } catch (error) { 
                 console.error("Network or other error fetching API key data for pre-fill:", error);
                 displayError(errorMessages.apiKey, "Could not load current API key settings due to a network or system error.");
-                if (apiKeyModelInput) apiKeyModelInput.value = '';
-                if (apiKeyKeyInput) apiKeyKeyInput.value = '';
-                if (apiKeyEndpointInput) apiKeyEndpointInput.value = '';
-                apiKeySupportsVisionCheckbox.checked = visionSupportedByCurrentModel;
+                if(apiKeySupportsVisionCheckbox) apiKeySupportsVisionCheckbox.checked = visionSupportedByCurrentModel;
             }
         });
-        optChangeUserData.addEventListener('click', () => {
+        optChangeUserData.addEventListener('click', async () => {
             hideModal(optionsModal);
             isUserDataEditing = true;
             userDataSubmitButton.textContent = 'Update User Data';
             prefillUserDataForm(); 
             showScreen('userData');
+            // No need to call refreshCurrentScreenState here, form submission will handle it.
         });
         
         optChangeCharProfile.addEventListener('click', async () => {
@@ -1067,17 +1077,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     bgMusicPlayer.src = "";
                 }
                 initialMusicPlayAttempted = false;
-                // userHasInteracted = false; // Reset this too for a truly new session feel
 
                 currentCharacterPersonalityText = '';
                 currentCharacterSetupData = {};
+                currentUserData = {}; // Also clear current user data from state
                 currentSpriteFolder = '';
-                messageDisplay.innerHTML = '';
+                if(messageDisplay) messageDisplay.innerHTML = '';
 
                 resetCharacterSetupToCreationMode(); 
                 isCharacterProfileEditing = false; 
+                isUserDataEditing = false; // Reset user data editing flag
+                if(userDataSubmitButton) userDataSubmitButton.textContent = 'Save User Data';
 
-                await initializeAppCoreLogic(); 
+
+                await refreshCurrentScreenState();
             } else {
                  showInGameNotification(`Failed to delete current character data: ${result?.error || 'Unknown error'}`, 'error');
             }
@@ -1244,7 +1257,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (result && result.message && !result.error) {
                 showInGameNotification(result.message, 'success'); 
                 hideModal(restoreBackupModal);
-                await initializeAppCoreLogic(); 
+                await refreshCurrentScreenState();
             } else {
                 if (!errorMessages.restoreBackup.textContent) {
                      displayError(errorMessages.restoreBackup, `Failed to restore backup for "${selectedCharacterName}": ${result?.error || 'Backup not found or error occurred.'}`);
@@ -1306,7 +1319,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             applyBackgroundButton.disabled = false; 
 
-            handleInteractionResponse(result); 
+            await handleInteractionResponse(result); 
         });
 
         closeBackgroundSelectorModalButton.addEventListener('click', () => {
@@ -1384,65 +1397,76 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- App Initialization Sequence ---
     async function initializeApp() {
-        // Setup that doesn't depend on async calls first
         initialMusicPlayAttempted = false;
-        userHasInteracted = false; // Reset interaction state on full initialize
+        userHasInteracted = false;
         if (bgMusicPlayer && musicVolumeSlider) {
             const lastVolume = parseFloat(localStorage.getItem(LAST_MUSIC_VOLUME_KEY)) || DEFAULT_MUSIC_VOLUME;
             bgMusicPlayer.volume = lastVolume;
             musicVolumeSlider.value = lastVolume;
         }
 
-        // Attach event listeners early, so user interaction can be captured even during splash
         attachEventListeners(); 
 
         if (splashScreenElement && appContainerElement) {
-            const FADE_IN_DURATION = 500;  
-            const HOLD_DURATION = 2000;  
-            const FADE_OUT_DURATION = 1000; 
+            const FADE_IN_DURATION = 1000;  
+            const HOLD_DURATION = 1000;  
+            const FADE_OUT_DURATION = 2000; 
 
+            // Ensure body is black and app container is hidden before splash starts
+            document.body.style.backgroundColor = '#000000';
+            appContainerElement.style.display = 'none'; 
+            splashScreenElement.style.display = 'flex'; // Use flex for centering content
+
+            // Start fade-in for splash screen
             setTimeout(() => { 
                 splashScreenElement.style.opacity = '1';
-            }, 50); 
+            }, 50); // Small delay to ensure display:flex is applied before opacity transition
 
-            // Start core app logic loading in parallel with splash screen hold
-            const coreLogicPromise = initializeAppCoreLogic();
+            let screenIdToShow;
+            try {
+                // Determine which screen to show after splash, and prepare its data
+                screenIdToShow = await determineInitialScreenAndPrepareData(); 
+            } catch (error) {
+                console.error("Error determining initial screen and preparing data:", error);
+                showInGameNotification("Critical error during app setup. Please check logs. Displaying API key screen as fallback.", "error", 0);
+                screenIdToShow = 'apiKey'; // Fallback screen
+            }
             
-            Promise.all([
-                coreLogicPromise, // Wait for core logic to finish
-                new Promise(resolve => setTimeout(resolve, FADE_IN_DURATION + HOLD_DURATION)) // Wait for splash screen duration
-            ]).then(() => {
-                splashScreenElement.style.opacity = '0';
-                setTimeout(() => {
-                    splashScreenElement.style.display = 'none';
-                    appContainerElement.style.display = 'block'; 
-                    playInitialMusic(); // Attempt to play music AFTER app container is visible
-                }, FADE_OUT_DURATION);
-            }).catch(error => {
-                console.error("Error during app initialization or splash sequence:", error);
-                showInGameNotification("Error during app initialization. Please check console.", "error", 0);
-                splashScreenElement.style.opacity = '0'; 
-                 setTimeout(() => {
-                    splashScreenElement.style.display = 'none';
-                    appContainerElement.style.display = 'block';
-                    // Still attempt music play even on error path if app container shown
-                    playInitialMusic(); 
-                }, FADE_OUT_DURATION);
-            });
+            // Wait for the splash screen's visual duration (fade-in + hold)
+            await new Promise(resolve => setTimeout(resolve, FADE_IN_DURATION + HOLD_DURATION));
 
-        } else { // Fallback if splash screen elements are not found
+            // Start fade-out for splash screen
+            splashScreenElement.style.opacity = '0';
+            setTimeout(() => {
+                splashScreenElement.style.display = 'none'; // Hide splash completely
+                appContainerElement.style.display = 'block'; // Show the main app container
+                
+                showScreen(screenIdToShow); // Now display the determined screen (this will set body bg color)
+                toggleAttachButtonVisibility(); // Update UI elements like the attach button
+                
+                playInitialMusic(); // Attempt to play background music
+            }, FADE_OUT_DURATION); // Wait for fade-out to complete
+
+        } else { 
+            // Fallback if splash screen elements are not found (e.g., during development/testing)
             console.warn("Splash screen element or app container not found. Initializing app directly.");
+            document.body.style.backgroundColor = '#000000'; // Ensure black background
             if(appContainerElement) appContainerElement.style.display = 'block';
-            initializeAppCoreLogic().then(() => {
-                playInitialMusic(); // Attempt music play
-            }).catch(error => {
-                console.error("Error during direct app initialization:", error);
-                showInGameNotification("Error during app initialization. Please check console.", "error", 0);
-                document.body.style.backgroundColor = '#FFC5D3'; 
-            });
+            
+            let screenIdToShow;
+            try {
+                screenIdToShow = await determineInitialScreenAndPrepareData();
+            } catch (error) {
+                console.error("Error during direct app initialization (determining screen):", error);
+                showInGameNotification("Critical error during app setup. Displaying API key screen.", "error", 0);
+                screenIdToShow = 'apiKey';
+            }
+            showScreen(screenIdToShow);
+            toggleAttachButtonVisibility();
+            playInitialMusic(); 
         }
     }
 
-    initializeApp(); // Start the whole process
+    initializeApp();
 
 });
