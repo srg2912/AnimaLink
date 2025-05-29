@@ -72,6 +72,22 @@
             <p class="error-message" id="userDataError"></p>
         </div>
 
+        <!-- Character Choice Screen (NEW) -->
+        <div id="character-choice-screen" class="screen form-box" style="display: none;">
+            <h2>Character Setup</h2>
+            <p>Would you like to create a new character or restore an existing one?</p>
+            <button id="choiceCreateNewButton" class="game-button">Create New Character</button>
+            <button id="choiceShowRestoreOptionsButton" class="game-button">Restore Existing Character</button>
+            
+            <div id="restore-options-section" style="display: none; margin-top: 20px;">
+                <hr style="border-color: rgba(255,255,255,0.3); margin-bottom: 20px;">
+                <label for="choiceBackupSelector" style="display: block; margin-bottom: 8px; font-weight: bold;">Select a backup to restore:</label>
+                <select id="choiceBackupSelector" class="game-select" style="width: 100%; margin-bottom: 15px; padding: 10px;"></select>
+                <button id="choiceApplyRestoreButton" class="game-button" style="width: 100%;">Restore Selected Backup</button>
+            </div>
+            <p class="error-message" id="characterChoiceError"></p>
+        </div>
+
         <!-- Character Personality Setup Screen -->
         <div id="character-setup-screen" class="screen form-box" style="display: none;">
              <h2>Create Your Character</h2>
@@ -218,7 +234,7 @@
             </div>
         </div>
 
-        <!-- Restore Backup Modal -->
+        <!-- Restore Backup Modal (used in Options) -->
         <div id="restore-backup-modal" class="modal" style="display: none;">
             <div class="modal-content form-box">
                 <span class="close-button" id="closeRestoreBackupModal">×</span>
