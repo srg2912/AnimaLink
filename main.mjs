@@ -13,7 +13,7 @@ let userDataPath; // Will store app.getPath('userData')
 
 // Function to create necessary directories in userData
 function ensureUserDataDirectories(basePath) {
-    console.log('Ensuring user data directories...');
+    console.log('[Electron Main] Ensuring user data directories...');
     const dirsToCreate = [
         path.join(basePath, 'config'),
         path.join(basePath, 'memory'),
@@ -28,91 +28,148 @@ function ensureUserDataDirectories(basePath) {
         if (!fs.existsSync(dir)) {
             try {
                 fs.mkdirSync(dir, { recursive: true });
-                console.log(`Created directory: ${dir}`);
+                console.log(`[Electron Main] Created directory: ${dir}`);
             } catch (error) {
-                console.error(`Failed to create directory ${dir}:`, error);
+                console.error(`[Electron Main] Failed to create directory ${dir}:`, error);
             }
+        } else {
+            console.log(`[Electron Main] Directory already exists: ${dir}`);
         }
     });
 }
 
+// Custom recursive copy function for ASAR compatibility
+function copyAssetRecursiveSync(src, dest) {
+    const exists = fs.existsSync(src);
+    if (!exists) {
+        console.error(`[Electron Main] Source path does not exist in copyAssetRecursiveSync: ${src}`);
+        return;
+    }
+
+    const stats = fs.statSync(src);
+    const isDirectory = stats.isDirectory();
+
+    if (isDirectory) {
+        if (!fs.existsSync(dest)) {
+            try {
+                fs.mkdirSync(dest, { recursive: true });
+                console.log(`[Electron Main] Created directory (recursive copy): ${dest}`);
+            } catch (mkdirError) {
+                console.error(`[Electron Main] Failed to create directory ${dest} (recursive copy):`, mkdirError);
+                return; // Stop if directory creation fails
+            }
+        }
+        try {
+            const children = fs.readdirSync(src);
+            console.log(`[Electron Main] Children in ${src}: ${children.join(', ')}`);
+            children.forEach((childItemName) => {
+                copyAssetRecursiveSync(
+                    path.join(src, childItemName),
+                    path.join(dest, childItemName)
+                );
+            });
+        } catch (readDirError) {
+            console.error(`[Electron Main] Failed to read directory ${src} (recursive copy):`, readDirError);
+        }
+    } else { // It's a file
+        try {
+            fs.copyFileSync(src, dest);
+            console.log(`[Electron Main] Copied file (recursive copy): ${src} to ${dest}`);
+        } catch (copyFileError) {
+            console.error(`[Electron Main] Error copying file ${src} to ${dest} (recursive copy):`, copyFileError);
+        }
+    }
+}
+
+
 // Function to copy default assets if they don't exist in userData
 function copyDefaultAssets(sourceAssetsPath, targetUserDataAssetsPath) {
-    console.log('Copying default assets if necessary...');
+    console.log(`[Electron Main] Copying default assets if necessary. Source: ${sourceAssetsPath}, Target Base: ${targetUserDataAssetsPath}`);
     const defaultAssetTypes = ['sprites', 'backgrounds', 'bg_music'];
 
+    console.log(`[Electron Main] Checking existence of source asset directories within: ${sourceAssetsPath}`);
     defaultAssetTypes.forEach(assetType => {
-        const sourceDir = path.join(sourceAssetsPath, assetType);
-        const targetDir = path.join(targetUserDataAssetsPath, assetType);
+        const checkSourceDir = path.join(sourceAssetsPath, assetType);
+        if (fs.existsSync(checkSourceDir)) {
+            console.log(`[Electron Main] Source directory for ${assetType} (${checkSourceDir}) EXISTS.`);
+        } else {
+            console.error(`[Electron Main] CRITICAL: Source directory for ${assetType} (${checkSourceDir}) DOES NOT EXIST in app package. Check 'files' in package.json and builder output.`);
+        }
+    });
+
+
+    defaultAssetTypes.forEach(assetType => {
+        const sourceDir = path.join(sourceAssetsPath, assetType); // e.g. app.asar/assets/sprites
+        const targetDir = path.join(targetUserDataAssetsPath, assetType); // e.g. userData/assets/sprites
+        console.log(`[Electron Main] Processing asset type: ${assetType}. Source dir: ${sourceDir}, Target dir: ${targetDir}`);
 
         if (fs.existsSync(sourceDir)) {
+            // Ensure the base target directory for the asset type exists (e.g., userData/assets/sprites)
             if (!fs.existsSync(targetDir)) {
                 try {
                     fs.mkdirSync(targetDir, { recursive: true });
-                    console.log(`Created target asset directory: ${targetDir}`);
+                    console.log(`[Electron Main] Created target base asset directory: ${targetDir}`);
                 } catch (error) {
-                     console.error(`Failed to create target asset directory ${targetDir}:`, error);
+                     console.error(`[Electron Main] Failed to create target base asset directory ${targetDir}:`, error);
                      return; // Skip copying for this asset type if dir creation fails
                 }
             }
             
             try {
-                const items = fs.readdirSync(sourceDir);
+                const items = fs.readdirSync(sourceDir); // These are items like 'default_female', 'bedroom.png'
+                console.log(`[Electron Main] Items found in sourceDir (${sourceDir}): ${items.join(', ')}`);
                 items.forEach(item => {
-                    const sourceItemPath = path.join(sourceDir, item);
-                    const targetItemPath = path.join(targetDir, item);
+                    const sourceItemPath = path.join(sourceDir, item); // e.g., app.asar/assets/sprites/default_female
+                    const targetItemPath = path.join(targetDir, item); // e.g., userData/assets/sprites/default_female
+                    console.log(`[Electron Main]   Processing item: ${item}. Source: ${sourceItemPath}, Target: ${targetItemPath}`);
 
                     if (!fs.existsSync(targetItemPath)) {
-                        try {
-                            if (fs.statSync(sourceItemPath).isDirectory()) {
-                                fs.cpSync(sourceItemPath, targetItemPath, { recursive: true });
-                                console.log(`Copied default asset directory: ${item} to ${assetType}`);
-                            } else {
-                                fs.copyFileSync(sourceItemPath, targetItemPath);
-                                console.log(`Copied default asset file: ${item} to ${assetType}`);
-                            }
-                        } catch (copyError) {
-                             console.error(`Failed to copy ${sourceItemPath} to ${targetItemPath}:`, copyError);
-                        }
+                        console.log(`[Electron Main]   Target item ${targetItemPath} does not exist. Attempting copy using copyAssetRecursiveSync.`);
+                        copyAssetRecursiveSync(sourceItemPath, targetItemPath);
+                    } else {
+                        console.log(`[Electron Main]   Target item ${targetItemPath} already exists. Skipping copy.`);
                     }
                 });
             } catch (readError) {
-                console.error(`Failed to read source asset directory ${sourceDir}:`, readError);
+                console.error(`[Electron Main] Failed to read source asset directory ${sourceDir}:`, readError);
             }
         } else {
-            console.warn(`Default asset source directory not found: ${sourceDir}`);
+            console.warn(`[Electron Main] Default asset source directory not found: ${sourceDir}. This asset type will be skipped.`);
         }
     });
+    console.log('[Electron Main] Finished attempting to copy default assets.');
 }
 
 function startExpressApp() {
     return new Promise((resolve, reject) => {
         const env = { ...process.env, USER_DATA_PATH: userDataPath, NODE_ENV: process.env.NODE_ENV };
-        expressAppProcess = fork(path.join(__dirname, 'app.mjs'), [], {
+        const appMjsPath = path.join(__dirname, 'app.mjs');
+        console.log(`[Electron Main] Forking Express app from: ${appMjsPath}`);
+        expressAppProcess = fork(appMjsPath, [], {
             env: env,
             silent: false 
         });
 
         expressAppProcess.on('message', (msg) => {
             if (msg === 'server-started') {
-                console.log('Express server reported as started.');
+                console.log('[Electron Main] Express server reported as started.');
                 clearTimeout(serverStartTimeout); 
                 resolve();
             }
         });
 
         expressAppProcess.on('error', (err) => {
-            console.error('Failed to start Express app:', err);
+            console.error('[Electron Main] Failed to start Express app process:', err);
             clearTimeout(serverStartTimeout);
             reject(err);
         });
 
         expressAppProcess.on('exit', (code, signal) => {
-            console.log(`Express app exited with code ${code} and signal ${signal}`);
+            console.log(`[Electron Main] Express app process exited with code ${code} and signal ${signal}`);
         });
         
         const serverStartTimeout = setTimeout(() => {
-            console.warn('Express server start timeout. Assuming it started (or failed silently).');
+            console.warn('[Electron Main] Express server start timeout. Assuming it started (or failed silently if no error event). Check Express logs.');
             resolve(); 
         }, 7000); 
     });
@@ -122,13 +179,13 @@ function createWindow () {
   const primaryDisplay = screen.getPrimaryDisplay();
   const { width, height } = primaryDisplay.workAreaSize;
 
-  console.log(`Detected screen work area: width=${width}, height=${height}`);
+  console.log(`[Electron Main] Detected screen work area: width=${width}, height=${height}`);
 
   mainWindow = new BrowserWindow({
     width: width, 
     height: height, 
     icon: path.join(__dirname, 'assets', 'icons', 'icon.png'), 
-    backgroundColor: '#000000', // Set window background to black
+    backgroundColor: '#000000', 
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -138,15 +195,19 @@ function createWindow () {
   });
 
   const port = process.env.PORT || 3000;
-  mainWindow.loadURL(`http://localhost:${port}`)
-    .then(() => console.log(`Main window loaded http://localhost:${port}`))
+  const appUrl = `http://localhost:${port}`;
+  console.log(`[Electron Main] Loading URL in main window: ${appUrl}`);
+  mainWindow.loadURL(appUrl)
+    .then(() => console.log(`[Electron Main] Main window loaded ${appUrl}`))
     .catch(err => {
-        console.error(`Failed to load URL http://localhost:${port}:`, err);
+        console.error(`[Electron Main] Failed to load URL ${appUrl}:`, err);
     });
 
-  if (process.env.NODE_ENV === 'development') {
+  if (process.env.NODE_ENV === 'development' || (app.isPackaged && process.env.ELECTRON_FORCE_DEVTOOLS === 'true')) {
+    console.log("[Electron Main] Opening DevTools.");
     mainWindow.webContents.openDevTools();
   }
+
 
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -154,30 +215,57 @@ function createWindow () {
 }
 
 app.whenReady().then(async () => {
+  console.log(`[Electron Main] App ready. Electron version: ${process.versions.electron}, Node version: ${process.versions.node}`);
+  console.log(`[Electron Main] Is app packaged? ${app.isPackaged}`);
+  
   userDataPath = app.getPath('userData');
-  console.log(`User data path: ${userDataPath}`);
+  console.log(`[Electron Main] User data path: ${userDataPath}`);
   
   ensureUserDataDirectories(userDataPath);
 
   const projectAssetsPath = path.join(__dirname, 'assets'); 
   const userDataAssetsPath = path.join(userDataPath, 'assets');
+  console.log(`[Electron Main] Project (source) assets path: ${projectAssetsPath}`);
+  console.log(`[Electron Main] UserData (target) assets path: ${userDataAssetsPath}`);
+  
   copyDefaultAssets(projectAssetsPath, userDataAssetsPath);
+
+  console.log('[Electron Main] Verifying copied assets in userDataPath after copyDefaultAssets call:');
+  const verifySpritesPath = path.join(userDataAssetsPath, 'sprites');
+  if (fs.existsSync(verifySpritesPath)) {
+      console.log(`[Electron Main] Contents of ${verifySpritesPath}:`, fs.readdirSync(verifySpritesPath));
+      const verifyDefaultFemalePath = path.join(verifySpritesPath, 'default_female');
+      if (fs.existsSync(verifyDefaultFemalePath)) {
+          console.log(`[Electron Main] Contents of ${verifyDefaultFemalePath}:`, fs.readdirSync(verifyDefaultFemalePath));
+      } else {
+          console.log(`[Electron Main] VERIFICATION FAILED: ${verifyDefaultFemalePath} does NOT exist.`);
+      }
+      const verifyDefaultMalePath = path.join(verifySpritesPath, 'default_male');
+      if (fs.existsSync(verifyDefaultMalePath)) {
+          console.log(`[Electron Main] Contents of ${verifyDefaultMalePath}:`, fs.readdirSync(verifyDefaultMalePath));
+      } else {
+          console.log(`[Electron Main] VERIFICATION FAILED: ${verifyDefaultMalePath} does NOT exist.`);
+      }
+  } else {
+      console.log(`[Electron Main] VERIFICATION FAILED: ${verifySpritesPath} does NOT exist.`);
+  }
 
   try {
     await startExpressApp();
     createWindow();
   } catch (error) {
-    console.error("Error during app startup:", error);
+    console.error("[Electron Main] Error during app startup sequence (Express or Window creation):", error);
     app.quit(); 
     return;
   }
 
   app.on('activate', function () {
     if (BrowserWindow.getAllWindows().length === 0) {
+        console.log("[Electron Main] App activated and no windows open.");
         if (!expressAppProcess || expressAppProcess.killed) {
-            console.log("Express process not running, restarting on activate...");
+            console.log("[Electron Main] Express process not running, restarting on activate...");
             startExpressApp().then(createWindow).catch(err => {
-                console.error("Error restarting app on activate:", err);
+                console.error("[Electron Main] Error restarting app on activate:", err);
                 app.quit();
             });
         } else {
@@ -188,22 +276,34 @@ app.whenReady().then(async () => {
 });
 
 app.on('window-all-closed', function () {
+  console.log("[Electron Main] All windows closed.");
   if (process.platform !== 'darwin') {
     app.quit();
   }
 });
 
 app.on('quit', () => {
-  console.log('Electron app is quitting...');
+  console.log('[Electron Main] Electron app is quitting...');
   if (expressAppProcess && !expressAppProcess.killed) {
-    console.log('Killing Express app process...');
-    expressAppProcess.kill('SIGINT'); 
+    console.log('[Electron Main] Killing Express app process...');
+    const killed = expressAppProcess.kill('SIGINT'); 
+    console.log(`[Electron Main] Express process kill signal sent. Success: ${killed}`);
+    setTimeout(() => {
+        if (expressAppProcess && !expressAppProcess.killed) {
+            console.warn('[Electron Main] Express process did not exit gracefully after SIGINT, forcing SIGKILL.');
+            expressAppProcess.kill('SIGKILL');
+        }
+    }, 2000); 
   }
 });
 
 ipcMain.on('open-modding-folder', () => {
     const moddingFolderPath = path.join(userDataPath, 'assets');
-    console.log(`Opening modding folder: ${moddingFolderPath}`);
+    console.log(`[Electron Main] IPC: Received 'open-modding-folder'. Path: ${moddingFolderPath}`);
     shell.openPath(moddingFolderPath)
-        .catch(err => console.error("Failed to open modding folder:", err));
+        .then(result => {
+            if (result) console.error(`[Electron Main] Error opening modding folder: ${result}`);
+            else console.log(`[Electron Main] Successfully opened modding folder: ${moddingFolderPath}`);
+        })
+        .catch(err => console.error("[Electron Main] Failed to open modding folder via shell.openPath:", err));
 });
