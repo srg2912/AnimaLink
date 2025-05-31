@@ -69,6 +69,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const optViewShortTermMemory = document.getElementById('optViewShortTermMemory');
     const optViewLongTermMemory = document.getElementById('optViewLongTermMemory');
     const optCreateBackupButton = document.getElementById('optCreateBackup');
+    const optCreateBaseBackupButton = document.getElementById('optCreateBaseBackup'); // New button
     const optRestoreCharacterButton = document.getElementById('optRestoreCharacter');
     const optCreateNewCharacterButton = document.getElementById('optCreateNewCharacter');
     const optOpenModdingFolderButton = document.getElementById('optOpenModdingFolder');
@@ -799,6 +800,17 @@ document.addEventListener('DOMContentLoaded', () => {
             if (result?.message && !result.error) showInGameNotification(result.message, 'success');
             else if (!errorMessages.gameScreen.textContent) showInGameNotification(`Backup failed: ${result?.error || 'Error'}`, 'error');
         });
+        if (optCreateBaseBackupButton) { // Event listener for the new button
+            optCreateBaseBackupButton.addEventListener('click', async () => {
+                hideModal(optionsModal);
+                const result = await apiRequest('/api/backups/create_base', 'POST', {}, errorMessages.gameScreen); 
+                if (result?.message && !result.error) {
+                    showInGameNotification(result.message, 'success');
+                } else if (!errorMessages.gameScreen.textContent) { 
+                    showInGameNotification(`Base backup creation failed: ${result?.error || 'Unknown error.'}`, 'error');
+                }
+            });
+        }
         optRestoreCharacterButton.addEventListener('click', async () => { 
             hideModal(optionsModal); 
             await populateBackupSelector(backupSelectorInput, errorMessages.restoreBackup, applyRestoreBackupButton);

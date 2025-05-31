@@ -308,7 +308,7 @@ export default function createRouter(userDataPath) { // Accept userDataPath
             
             res.status(200).json({ 
                 message: 'Character data updated successfully.',
-                characterProfile: updatedProfileText, // The (potentially new) profile text
+                characterProfile: updatedProfileText || "", // The (potentially new) profile text, ensure string
                 general: currentGeneralData // The (potentially new) general data
             });
 
@@ -413,8 +413,9 @@ export default function createRouter(userDataPath) { // Accept userDataPath
             const generalDataForBackup = JSON.parse(await readTextFile(GENERAL_MEMORY_PATH)); 
             const shortTermData = JSON.parse(await readTextFile(SHORT_TERM_MEMORY_PATH));
             const longTermData = JSON.parse(await readTextFile(LONG_TERM_MEMORY_PATH));
-            const personalityData = await readTextFile(PERSONALITY_PATH);
-            const backupObject = { general: generalDataForBackup, shortTerm: shortTermData, longTerm: longTermData, personality: personalityData };
+            const personalityFileContent = await readTextFile(PERSONALITY_PATH);
+            const personalityDataForBackup = (typeof personalityFileContent === 'string') ? personalityFileContent : "";
+            const backupObject = { general: generalDataForBackup, shortTerm: shortTermData, longTerm: longTermData, personality: personalityDataForBackup };
             const safeBackupName = (generalDataForBackup.name || 'character').replace(/[^a-z0-9_.-]/gi, '_');
             await updateMemoryFile(path.join(BACKUPS_DIR_PATH, `${safeBackupName}_backup.json`), backupObject);
           } catch (error) {
@@ -577,8 +578,9 @@ export default function createRouter(userDataPath) { // Accept userDataPath
               const generalDataForBackup = JSON.parse(await readTextFile(GENERAL_MEMORY_PATH));
               const shortTermData = JSON.parse(await readTextFile(SHORT_TERM_MEMORY_PATH));
               const longTermData = JSON.parse(await readTextFile(LONG_TERM_MEMORY_PATH));
-              const personalityData = await readTextFile(PERSONALITY_PATH);
-              const backupObject = { general: generalDataForBackup, shortTerm: shortTermData, longTerm: longTermData, personality: personalityData };
+              const personalityFileContent = await readTextFile(PERSONALITY_PATH);
+              const personalityDataForBackup = (typeof personalityFileContent === 'string') ? personalityFileContent : "";
+              const backupObject = { general: generalDataForBackup, shortTerm: shortTermData, longTerm: longTermData, personality: personalityDataForBackup };
               const safeBackupName = (generalDataForBackup.name || 'character').replace(/[^a-z0-9_.-]/gi, '_');
               await updateMemoryFile(path.join(BACKUPS_DIR_PATH, `${safeBackupName}_backup.json`), backupObject);
             } catch (error) {
@@ -640,7 +642,7 @@ export default function createRouter(userDataPath) { // Accept userDataPath
             const backupFiles = allFiles.filter(file => file.endsWith('_backup.json'));
             
             const backupInfos = backupFiles.map(file => {
-                const characterName = file.replace('_backup.json', '');
+                const characterName = file.replace('_backup.json', '').replace('_base_backup.json', ''); // Adjusted to handle base backups too for display
                 return { fileName: file, characterName: characterName };
             });
             res.status(200).json(backupInfos);
@@ -653,10 +655,17 @@ export default function createRouter(userDataPath) { // Accept userDataPath
     router.get('/api/backups/:name', async (req, res) => {
         const characterNameFromRequest = req.params.name; 
       if (!characterNameFromRequest) return res.status(400).json({ error: 'Bad request: Character name for backup not provided.' });
-      
-      const safeName = characterNameFromRequest.replace(/[^a-z0-9_.-]/gi, '_'); 
-      const backupFileName = `${safeName}_backup.json`;
-      const backupFilePath = path.join(BACKUPS_DIR_PATH, backupFileName);
+
+      // Given the current structure:
+      const safeName = characterNameFromRequest.replace(/[^a-z0-9_.-]/gi, '_');
+      let backupFileName = `${safeName}_backup.json`;
+      let backupFilePath = path.join(BACKUPS_DIR_PATH, backupFileName);
+
+      if (!fsSync.existsSync(backupFilePath)) {
+          backupFileName = `${safeName}_base_backup.json`;
+          backupFilePath = path.join(BACKUPS_DIR_PATH, backupFileName);
+      }
+
 
       try {
         const backupRaw = await readTextFile(backupFilePath);
@@ -670,17 +679,22 @@ export default function createRouter(userDataPath) { // Accept userDataPath
         const { general, shortTerm, longTerm, personality } = backupObject;
         
         if (!general || !Array.isArray(shortTerm) || !Array.isArray(longTerm) || typeof personality !== 'string') {
-            return res.status(400).json({ error: 'Backup data is malformed.' });
+            if (personality === null && backupObject.hasOwnProperty('personality')) {
+                 backupObject.personality = "";
+            } else {
+                return res.status(400).json({ error: 'Backup data is malformed. General, shortTerm, longTerm, or personality has unexpected type.' });
+            }
         }
+
 
         await updateMemoryFile(SHORT_TERM_MEMORY_PATH, shortTerm);
         await updateMemoryFile(LONG_TERM_MEMORY_PATH, longTerm);
         await updateTextFile(JSON.stringify(general, null, 2), GENERAL_MEMORY_PATH, 'w');
-        await updateTextFile(personality, PERSONALITY_PATH, 'w');
+        await updateTextFile(personality, PERSONALITY_PATH, 'w'); // personality is now ensured to be a string
 
         reloadConfigAndReinitializeClient();
 
-        res.status(200).json({ message: `Memory for '${characterNameFromRequest}' restored successfully.` });
+        res.status(200).json({ message: `Memory for '${characterNameFromRequest}' (from ${backupFileName}) restored successfully.` });
       } catch (error) {
         console.error("Error restoring backup:", error);
         if (error instanceof SyntaxError) { 
@@ -737,13 +751,15 @@ export default function createRouter(userDataPath) { // Accept userDataPath
         }
         
         const generalData = (generalJsonString && generalJsonString.trim() !== '{}' && generalJsonString.trim() !== '') ? JSON.parse(generalJsonString) : {};
+        const profileToReturn = (typeof personalityText === 'string') ? personalityText : "";
+
 
         res.status(200).json({ 
-            profile: personalityText || "", 
+            profile: profileToReturn, 
             general: generalData 
         });
       } catch (error) {
-         if (error.code === 'ENOENT') {
+         if (error.code === 'ENOENT') { // This might be less relevant now that we default to "" for profile
             return res.status(404).json({ error: 'Character profile or general info file not found.', notFound: true });
         }
         console.error("Error fetching personality:", error);
@@ -797,13 +813,14 @@ export default function createRouter(userDataPath) { // Accept userDataPath
             const longTermDataString = await readTextFile(LONG_TERM_MEMORY_PATH);
             const longTermData = longTermDataString ? JSON.parse(longTermDataString) : [];
             
-            const personalityData = await readTextFile(PERSONALITY_PATH);
+            const personalityFileContent = await readTextFile(PERSONALITY_PATH);
+            const personalityDataForBackup = (typeof personalityFileContent === 'string') ? personalityFileContent : "";
             
             const backupObject = { 
                 general: generalData, 
                 shortTerm: shortTermData, 
                 longTerm: longTermData, 
-                personality: personalityData 
+                personality: personalityDataForBackup 
             };
             
             const backupFilePath = path.join(BACKUPS_DIR_PATH, `${safeBackupName}_backup.json`);
@@ -816,6 +833,45 @@ export default function createRouter(userDataPath) { // Accept userDataPath
                  return res.status(500).json({ error: 'Failed to create backup: A required memory file is missing or empty.' });
             }
             res.status(500).json({ error: 'Failed to create backup.' });
+        }
+    });
+
+    // New route for creating base character backup
+    router.post('/api/backups/create_base', async (req, res) => {
+        try {
+            const generalString = await readTextFile(GENERAL_MEMORY_PATH);
+            if (!generalString || generalString.trim() === '{}') {
+                return res.status(404).json({ error: 'Character general info not found. Cannot create base backup.' });
+            }
+            const generalData = JSON.parse(generalString);
+            const safeBackupName = (generalData.name || 'character').replace(/[^a-z0-9_.-]/gi, '_');
+            if (!safeBackupName) {
+                return res.status(400).json({ error: 'Character name not found or invalid in general info. Cannot create base backup.' });
+            }
+
+            const personalityFileContent = await readTextFile(PERSONALITY_PATH);
+            // If personality file doesn't exist or is empty/unreadable, personalityDataForBackup will be an empty string.
+            const personalityDataForBackup = (typeof personalityFileContent === 'string') ? personalityFileContent : "";
+            
+            const baseBackupObject = { 
+                general: generalData, 
+                personality: personalityDataForBackup,
+                shortTerm: [], 
+                longTerm: []
+            };
+            
+            const backupFilePath = path.join(BACKUPS_DIR_PATH, `${safeBackupName}_base_backup.json`);
+            await updateMemoryFile(backupFilePath, baseBackupObject); 
+
+            res.status(201).json({ message: `Base backup file for '${safeBackupName}' created successfully.`, filePath: backupFilePath });
+        } catch (error) {
+            console.error('Error during base backup creation: ', error);
+            // General_memory is checked at the start. Personality_path issues are handled by defaulting to empty string.
+            // So, specific ENOENT checks for those paths are less critical here than in full backup.
+            if (error.code === 'ENOENT' && error.path === GENERAL_MEMORY_PATH ) { 
+                 return res.status(500).json({ error: 'Failed to create base backup: Character general info file is missing.' });
+            }
+            res.status(500).json({ error: 'Failed to create base backup.' });
         }
     });
 
