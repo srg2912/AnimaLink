@@ -12,135 +12,147 @@
         <div id="confirmation-modal" class="modal" style="display: none;">
             <div class="modal-content form-box">
                 <span class="close-button" id="closeConfirmationModalInternalButton">×</span>
-                <h3 id="confirmation-title">Confirm Action</h3>
+                <h3 id="confirmation-title" data-translate="confirmActionTitle">Confirm Action</h3>
                 <p id="confirmation-message"></p>
                 <div id="confirmation-buttons">
-                    <button id="confirm-yes-button" class.name="game-button">Yes</button>
-                    <button id="confirm-no-button" class.name="game-button">No</button>
+                    <button id="confirm-yes-button" class="game-button" data-translate="confirmYes">Yes</button>
+                    <button id="confirm-no-button" class="game-button" data-translate="confirmNo">No</button>
                 </div>
             </div>
-        </div>        
+        </div>
     </div>
 
     <!-- Splash Screen -->
     <div id="splash-screen">
-        <img id="splash-logo" src="/logo/initial.png" alt="AnimaLink Loading...">
+        <img id="splash-logo" src="/logo/initial.png" data-translate-alt="splashLoading" alt="AnimaLink Loading...">
     </div>
 
     <div id="app-container" style="display: none;">
         <audio id="bgMusicPlayer" loop></audio>
 
+        <!-- Language Selection Screen (NEW) -->
+        <div id="language-select-screen" class="screen form-box" style="display: none;">
+            <h2 data-translate="languageSelectTitle">Select Language</h2>
+            <form id="languageSelectForm">
+                <label for="languageSelector" data-translate="languageSelectLabel">Choose your preferred language:</label>
+                <select id="languageSelector" name="language" class="game-select" required>
+                    <!-- Options will be populated by JavaScript -->
+                </select>
+                <button type="submit" data-translate="languageSelectContinue">Continue</button>
+            </form>
+        </div>
+
         <!-- API Key Setup Screen -->
         <div id="api-key-screen" class="screen form-box" style="display: none;">
-            <h2>API Key Configuration</h2>
+            <h2 data-translate="apiKeyConfigTitle">API Key Configuration</h2>
             <form id="apiKeyForm">
-                <label for="model">Model:</label>
-                <input type="text" id="model" name="model" placeholder="e.g., gpt-4-vision-preview" required><br>
-                <label for="key">API Key:</label>
-                <input type="password" id="key" name="key" placeholder="Your API Key" required><br>
-                <label for="endpoint">Endpoint URL:</label>
-                <input type="url" id="endpoint" name="endpoint" placeholder="e.g., https://api.openai.com/v1" required><br>
+                <label for="model" data-translate="modelLabel">Model:</label>
+                <input type="text" id="model" name="model" data-translate-placeholder="modelPlaceholder" required><br>
+                <label for="key" data-translate="apiKeyLabel">API Key:</label>
+                <input type="password" id="key" name="key" data-translate-placeholder="apiKeyPlaceholder" required><br>
+                <label for="endpoint" data-translate="endpointLabel">Endpoint URL:</label>
+                <input type="url" id="endpoint" name="endpoint" data-translate-placeholder="endpointPlaceholder" required><br>
                 <div class="checkbox-container">
                     <input type="checkbox" id="apiKeySupportsVision" name="supports_vision">
-                    <label for="apiKeySupportsVision" class="inline-label">This model supports vision</label>
+                    <label for="apiKeySupportsVision" class="inline-label" data-translate="supportsVisionLabel">This model supports vision</label>
                 </div>
-                <button type="submit">Save API Key</button>
+                <button type="submit" data-translate="saveApiKeyButton">Save API Key</button>
             </form>
             <p class="error-message" id="apiKeyError"></p>
         </div>
 
         <!-- User Data Setup Screen -->
         <div id="user-data-screen" class="screen form-box" style="display: none;">
-             <h2>Your Information</h2>
+             <h2 data-translate="userDataTitle">Your Information</h2>
             <form id="userDataForm">
                 <div class="form-columns-wrapper">
                     <div class="form-field-item">
-                        <label for="userName">Name*:</label>
-                        <input type="text" id="userName" name="name" placeholder="Your Name" required>
+                        <label for="userName" data-translate="userNameLabel">Name*:</label>
+                        <input type="text" id="userName" name="name" data-translate-placeholder="userNamePlaceholder" required>
                     </div>
                     <div class="form-field-item">
-                        <label for="nickname">Nickname:</label>
-                        <input type="text" id="nickname" name="nickname" placeholder="Nickname (Optional)">
+                        <label for="nickname" data-translate="nicknameLabel">Nickname:</label>
+                        <input type="text" id="nickname" name="nickname" data-translate-placeholder="nicknamePlaceholder">
                     </div>
                     <div class="form-field-item">
-                        <label for="gender">Gender*:</label>
-                        <input type="text" id="gender" name="gender" placeholder="Your Gender" required>
+                        <label for="gender" data-translate="genderLabel">Gender*:</label>
+                        <input type="text" id="gender" name="gender" data-translate-placeholder="genderPlaceholder" required>
                     </div>
                     <div class="form-field-item">
-                        <label for="pronouns">Pronouns*:</label>
-                        <input type="text" id="pronouns" name="pronouns" placeholder="e.g., she/her, he/him, they/them" required>
+                        <label for="pronouns" data-translate="pronounsLabel">Pronouns*:</label>
+                        <input type="text" id="pronouns" name="pronouns" data-translate-placeholder="pronounsPlaceholder" required>
                     </div>
                     <div class="form-field-item">
-                        <label for="age">Age:</label>
-                        <input type="number" id="age" name="age" placeholder="Your Age (Optional)">
+                        <label for="age" data-translate="ageLabel">Age:</label>
+                        <input type="number" id="age" name="age" data-translate-placeholder="agePlaceholder">
                     </div>
                     <div class="form-field-item">
-                        <label for="hobbies">Hobbies (comma-separated):</label>
-                        <input type="text" id="hobbies" name="hobbies" placeholder="e.g., reading, gaming (Optional)">
+                        <label for="hobbies" data-translate="hobbiesLabel">Hobbies (comma-separated):</label>
+                        <input type="text" id="hobbies" name="hobbies" data-translate-placeholder="hobbiesPlaceholder">
                     </div>
                     <div class="form-field-item form-field-full-width">
-                        <label for="userPersonality">Your Personality (briefly):</label>
-                        <input type="text" id="userPersonality" name="personality" placeholder="A short description (Optional)">
+                        <label for="userPersonality" data-translate="userPersonalityLabel">Your Personality (briefly):</label>
+                        <input type="text" id="userPersonality" name="personality" data-translate-placeholder="userPersonalityPlaceholder">
                     </div>
                 </div>
-                <button type="submit" id="userDataSubmitButton">Save User Data</button>
+                <button type="submit" id="userDataSubmitButton" data-translate="saveUserDataButton">Save User Data</button>
             </form>
             <p class="error-message" id="userDataError"></p>
         </div>
 
         <!-- Character Choice Screen -->
         <div id="character-choice-screen" class="screen form-box" style="display: none;">
-            <h2>Character Setup</h2>
-            <p>Would you like to create a new character or restore an existing one?</p>
-            <button id="choiceCreateNewButton" class="game-button">Create New Character</button>
-            <button id="choiceShowRestoreOptionsButton" class="game-button">Restore Existing Character</button>
+            <h2 data-translate="charChoiceTitle">Character Setup</h2>
+            <p data-translate="charChoicePrompt">Would you like to create a new character or restore an existing one?</p>
+            <button id="choiceCreateNewButton" class="game-button" data-translate="charChoiceCreateNew">Create New Character</button>
+            <button id="choiceShowRestoreOptionsButton" class="game-button" data-translate="charChoiceShowRestore">Restore Existing Character</button>
             
             <div id="restore-options-section" style="display: none; margin-top: 20px;">
                 <hr style="border-color: rgba(255,255,255,0.3); margin-bottom: 20px;">
-                <label for="choiceBackupSelector" style="display: block; margin-bottom: 8px; font-weight: bold;">Select a backup to restore:</label>
+                <label for="choiceBackupSelector" style="display: block; margin-bottom: 8px; font-weight: bold;" data-translate="charChoiceRestoreSectionTitle">Select a backup to restore:</label>
                 <select id="choiceBackupSelector" class="game-select" style="width: 100%; margin-bottom: 15px; padding: 10px;"></select>
-                <button id="choiceApplyRestoreButton" class="game-button" style="width: 100%;">Restore Selected Backup</button>
+                <button id="choiceApplyRestoreButton" class="game-button" style="width: 100%;" data-translate="charChoiceRestoreButton">Restore Selected Backup</button>
             </div>
             <p class="error-message" id="characterChoiceError"></p>
         </div>
 
         <!-- Character Personality Setup Screen -->
         <div id="character-setup-screen" class="screen form-box" style="display: none;">
-             <h2>Create Your Character</h2>
+             <h2 data-translate="charCreateTitle">Create Your Character</h2>
             <form id="characterCreateForm">
                 <div class="form-columns-wrapper">
                     <div class="form-field-item">
-                        <label for="charName">Character Name*:</label>
-                        <input type="text" id="charName" name="name" placeholder="Character's Name" required>
+                        <label for="charName" data-translate="charNameLabel">Character Name*:</label>
+                        <input type="text" id="charName" name="name" data-translate-placeholder="charNamePlaceholder" required>
                     </div>
                     <div class="form-field-item">
-                        <label for="charLooks">Character Gender*:</label>
-                        <input type="text" id="charLooks" name="looks" placeholder="e.g., female, male, non-binary" required>
+                        <label for="charLooks" data-translate="charLooksLabel">Character Gender*:</label>
+                        <input type="text" id="charLooks" name="looks" data-translate-placeholder="charLooksPlaceholder" required>
                     </div>
                     <div class="form-field-item form-field-full-width">
-                        <label for="charPersonalityDesc">Character Personality Description*:</label>
-                        <textarea id="charPersonalityDesc" name="personality" rows="3" placeholder="Describe their personality" required></textarea>
+                        <label for="charPersonalityDesc" data-translate="charPersonalityDescLabel">Character Personality Description*:</label>
+                        <textarea id="charPersonalityDesc" name="personality" rows="3" data-translate-placeholder="charPersonalityDescPlaceholder" required></textarea>
                     </div>
                     <div class="form-field-item">
-                        <label for="charLanguage">Character Language*:</label>
-                        <input type="text" id="charLanguage" name="language" value="English" placeholder="e.g., English, Spanish" required>
+                        <label for="charLanguage" data-translate="charLangLabel">Character Language*:</label>
+                        <input type="text" id="charLanguage" name="language" value="English" data-translate-placeholder="charLangPlaceholder" required>
                     </div>
                     <div class="form-field-item">
-                        <label for="charSpriteFolderSelector">Sprite Folder To Use*:</label>
+                        <label for="charSpriteFolderSelector" data-translate="charSpriteFolderLabel">Sprite Folder To Use*:</label>
                         <select id="charSpriteFolderSelector" name="sprite" class="game-select" required>
-                            <option value="" disabled selected>Loading sprite folders...</option>
+                            <!-- Options populated by JS, placeholder handled by populateSpriteFolderSelector -->
                         </select>
                     </div>
                 </div>
-                <button type="submit">Generate Character Profile</button>
+                <button type="submit" data-translate="generateProfileButton">Generate Character Profile</button>
             </form>
             <p class="error-message" id="characterCreateError"></p>
 
             <div id="character-edit-section" style="display: none;">
-                <h3>Generated Profile (Edit if needed)</h3>
+                <h3 data-translate="charEditSectionTitle">Generated Profile (Edit if needed)</h3>
                 <textarea id="generatedPersonality" rows="10" cols="50"></textarea><br>
-                <button id="saveEditedPersonality">Save Edited Profile</button>
-                <button id="continueToGameButton">Continue to Game</button>
+                <button id="saveEditedPersonality" data-translate="saveEditedProfileButton">Save Edited Profile</button>
+                <button id="continueToGameButton" data-translate="continueToGameButton">Continue to Game</button>
                 <p class="error-message" id="characterEditError"></p>
             </div>
         </div>
@@ -155,20 +167,20 @@
             </div>
             
             <div id="left-controls">
-                <button id="optionsButton" class="game-button">☰ Options</button>
-                <button id="changeBackgroundButton" class="game-button">Background</button>
-                <button id="musicSettingsButton" class="game-button">Music</button> 
+                <button id="optionsButton" class="game-button" data-translate="optionsButton">☰ Options</button>
+                <button id="changeBackgroundButton" class="game-button" data-translate="changeBgButton">Background</button>
+                <button id="musicSettingsButton" class="game-button" data-translate="musicSettingsButton">Music</button> 
                 <div id="interaction-controls">
                     <select id="actionSelector" class="game-select">
-                        <option value="hug">Hug</option>
-                        <option value="tickle">Tickle</option>
-                        <option value="kiss">Kiss</option>
-                        <option value="pet_head">Pet head</option>
-                        <option value="hold_hand">Hold hand</option>
-                        <option value="high_five">High five</option>
-                        <option value="give_massage">Give massage</option>
+                        <option value="hug" data-translate="actionHug">Hug</option>
+                        <option value="tickle" data-translate="actionTickle">Tickle</option>
+                        <option value="kiss" data-translate="actionKiss">Kiss</option>
+                        <option value="pet_head" data-translate="actionPetHead">Pet head</option>
+                        <option value="hold_hand" data-translate="actionHoldHand">Hold hand</option>
+                        <option value="high_five" data-translate="actionHighFive">High five</option>
+                        <option value="give_massage" data-translate="actionGiveMassage">Give massage</option>
                     </select>
-                    <button id="performActionButton" class="game-button">Perform</button>
+                    <button id="performActionButton" class="game-button" data-translate="actionPerformButton">Perform</button>
                 </div>
             </div>
 
@@ -177,14 +189,14 @@
                     <!-- Messages will appear here -->
                 </div>
                 <div id="input-area">
-                    <button id="attachImageButton" class="game-button attach-button" style="display: none;" title="Attach Image">📷</button>
+                    <button id="attachImageButton" class="game-button attach-button" style="display: none;" data-translate-title="attachImageButtonTitle" title="Attach Image">📷</button>
                     <input type="file" id="imageUpload" accept="image/png, image/jpeg, image/gif, image/webp" style="display: none;">
                     <div id="image-preview-container" style="display: none;">
                         <img id="imagePreview" src="#" alt="Image preview"/>
                         <button id="removeImagePreviewButton">✖</button>
                     </div>
-                    <input type="text" id="userMessageInput" placeholder="Type your message...">
-                    <button id="sendMessageButton" class="game-button" title="Send Message">
+                    <input type="text" id="userMessageInput" data-translate-placeholder="userMessagePlaceholder" placeholder="Type your message...">
+                    <button id="sendMessageButton" class="game-button" data-translate-title="sendMessageButtonTitle" title="Send Message">
                         <svg viewBox="0 0 24 24" fill="currentColor" width="18px" height="18px">
                             <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path>
                         </svg>
@@ -198,21 +210,22 @@
         <div id="options-modal" class="modal" style="display: none;">
             <div class="modal-content form-box">
                 <span class="close-button" id="closeOptionsModal">×</span>
-                <h2>Options</h2>
+                <h2 data-translate="optionsTitle">Options</h2>
                 <div class="checkbox-container">
                     <input type="checkbox" id="supportsVisionCheckbox">
-                    <label for="supportsVisionCheckbox" class="inline-label">The current model supports vision</label>
+                    <label for="supportsVisionCheckbox" class="inline-label" data-translate="supportsVisionCheckboxLabel">The current model supports vision</label>
                 </div>
-                <button id="optChangeApiKey">Change API Key</button>
-                <button id="optChangeUserData">Change Your Data</button>
-                <button id="optChangeCharProfile">Edit Character Profile</button>
-                <button id="optViewShortTermMemory">View Chat History</button>
-                <button id="optViewLongTermMemory">View Character Diary</button>
-                <button id="optCreateBackup" class="game-button">Create Backup</button>
-                <button id="optCreateBaseBackup" class="game-button">Create Base Character File</button>
-                <button id="optRestoreCharacter" class="game-button">Restore Character</button>
-                <button id="optOpenModdingFolder" class="game-button">Open Modding Folder</button> 
-                <button id="optCreateNewCharacter" class="game-button">Create New Character</button>
+                <button id="optChangeApiKey" data-translate="optChangeApiKey">Change API Key</button>
+                <button id="optChangeUserData" data-translate="optChangeUserData">Change Your Data</button>
+                <button id="optChangeCharProfile" data-translate="optChangeCharProfile">Edit Character Profile</button>
+                <button id="optViewShortTermMemory" data-translate="optViewChatHistory">View Chat History</button>
+                <button id="optViewLongTermMemory" data-translate="optViewCharDiary">View Character Diary</button>
+                <button id="optCreateBackup" class="game-button" data-translate="optCreateBackup">Create Backup</button>
+                <button id="optCreateBaseBackup" class="game-button" data-translate="optCreateBaseBackup">Create Base Character File</button>
+                <button id="optRestoreCharacter" class="game-button" data-translate="optRestoreCharacter">Restore Character</button>
+                <button id="optChangeLanguage" class="game-button" data-translate="optChangeLanguage">Change Language</button> <!-- NEW -->
+                <button id="optOpenModdingFolder" class="game-button" data-translate="optOpenModdingFolder">Open Modding Folder</button> 
+                <button id="optCreateNewCharacter" class="game-button" data-translate="optCreateNewChar">Create New Character</button>
             </div>
         </div>
         
@@ -220,7 +233,7 @@
         <div id="memory-viewer-modal" class="modal" style="display:none;">
             <div class="modal-content form-box"> 
                 <span class="close-button" id="closeMemoryViewerModal">×</span>
-                <h2 id="memoryViewerTitle">Memory</h2>
+                <h2 id="memoryViewerTitle" data-translate="memoryViewerTitleDefault">Memory</h2> <!-- Default title -->
                 <div id="memoryViewerContent" class="scrollable-content"></div>
             </div>
         </div>
@@ -229,10 +242,10 @@
         <div id="background-selector-modal" class="modal" style="display: none;">
             <div class="modal-content form-box">
                 <span class="close-button" id="closeBackgroundSelectorModal">×</span>
-                <h2>Change Background</h2>
-                <label for="backgroundSelectorInput" style="display: block; margin-bottom: 8px; font-weight: bold;">Select a background:</label>
+                <h2 data-translate="changeBgModalTitle">Change Background</h2>
+                <label for="backgroundSelectorInput" style="display: block; margin-bottom: 8px; font-weight: bold;" data-translate="selectBgLabel">Select a background:</label>
                 <select id="backgroundSelectorInput" class="game-select" style="width: 100%; margin-bottom: 20px; padding: 10px;"></select>
-                <button id="applyBackgroundButton" class="game-button" style="width: 100%;">Apply Background</button>
+                <button id="applyBackgroundButton" class="game-button" style="width: 100%;" data-translate="applyBgButton">Apply Background</button>
             </div>
         </div>
 
@@ -240,12 +253,12 @@
         <div id="music-settings-modal" class="modal" style="display: none;">
             <div class="modal-content form-box">
                 <span class="close-button" id="closeMusicSettingsModal">×</span>
-                <h2>Music Settings</h2>
+                <h2 data-translate="musicSettingsModalTitle">Music Settings</h2>
                 
-                <label for="musicTrackSelector" style="display: block; margin-bottom: 8px; font-weight: bold;">Select Track:</label>
+                <label for="musicTrackSelector" style="display: block; margin-bottom: 8px; font-weight: bold;" data-translate="selectMusicTrackLabel">Select Track:</label>
                 <select id="musicTrackSelector" class="game-select" style="width: 100%; margin-bottom: 20px;"></select>
                 
-                <label for="musicVolumeSlider" style="display: block; margin-bottom: 8px; font-weight: bold;">Volume:</label>
+                <label for="musicVolumeSlider" style="display: block; margin-bottom: 8px; font-weight: bold;" data-translate="musicVolumeLabel">Volume:</label>
                 <input type="range" id="musicVolumeSlider" min="0" max="1" step="0.01" value="0.5" style="width: 100%; margin-bottom: 20px;">
                 
             </div>
@@ -255,11 +268,11 @@
         <div id="restore-backup-modal" class="modal" style="display: none;">
             <div class="modal-content form-box">
                 <span class="close-button" id="closeRestoreBackupModal">×</span>
-                <h2>Restore Character from Backup</h2>
-                <p><strong>Warning:</strong> Restoring a backup will overwrite the current character's data and chat history. Please make a backup of the current character first if needed.</p>
-                <label for="backupSelectorInput" style="display: block; margin-bottom: 8px; font-weight: bold;">Select a backup to restore:</label>
+                <h2 data-translate="restoreBackupModalTitle">Restore Character from Backup</h2>
+                <p data-translate="restoreBackupWarning"><strong>Warning:</strong> Restoring a backup will overwrite the current character's data and chat history. Please make a backup of the current character first if needed.</p>
+                <label for="backupSelectorInput" style="display: block; margin-bottom: 8px; font-weight: bold;" data-translate="selectBackupLabel">Select a backup to restore:</label>
                 <select id="backupSelectorInput" class="game-select" style="width: 100%; margin-bottom: 20px; padding: 10px;"></select>
-                <button id="applyRestoreBackupButton" class="game-button" style="width: 100%;">Restore Selected Backup</button>
+                <button id="applyRestoreBackupButton" class="game-button" style="width: 100%;" data-translate="applyRestoreBackupButton">Restore Selected Backup</button>
                 <p class="error-message" id="restoreBackupError"></p>
             </div>
         </div>
