@@ -16,5 +16,9 @@ Thumbs.db
 # Editor-specific files
 .vscode/
 
+# txt files
 reminder.txt
 structure.txt
+
+# Electron builder
+dist_electron/
