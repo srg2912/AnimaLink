@@ -47,6 +47,7 @@
     - [🔹 Use at Your Own Risk](#-use-at-your-own-risk)
     - [🔹 Use by Minors](#-use-by-minors)
   - [**🐈 Who are MechaNeko Studios?**](#-who-are-mechaneko-studios)
+  - [💖 Did you like the project?](#-did-you-like-the-project)
   - [**✨ Special Thanks**](#-special-thanks)
     - [Default Sprites](#default-sprites)
     - [Music](#music)
@@ -530,6 +531,11 @@ Parental guidance is strongly recommended. The developer does **not take respons
 ## **🐈 Who are MechaNeko Studios?**
 
 At the current time of writing this README **it's just me**, Sergio A., I just wanted to use some sort of pen name to publish this game. But I'm not against the idea of expanding the team if the opportunity ever appears.
+
+## 💖 Did you like the project?
+
+If you'd like to support it, consider [buying me a coffee](https://ko-fi.com/mechaneko) or sharing the project!
+
 
 ## **✨ Special Thanks**
 

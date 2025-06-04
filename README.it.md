@@ -47,6 +47,7 @@
     - [🔹 Uso a Proprio Rischio](#-uso-a-proprio-rischio)
     - [🔹 Uso da Parte di Minori](#-uso-da-parte-di-minori)
   - [**🐈 Chi sono i MechaNeko Studios?**](#-chi-sono-i-mechaneko-studios)
+  - [💖 Ti è piaciuto questo progetto?](#-ti-è-piaciuto-questo-progetto)
   - [**✨ Ringraziamenti Speciali**](#-ringraziamenti-speciali)
     - [Sprite Predefiniti](#sprite-predefiniti)
     - [Musica](#musica)
@@ -530,6 +531,10 @@ Si raccomanda vivamente la supervisione dei genitori. Lo sviluppatore **non si a
 ## **🐈 Chi sono i MechaNeko Studios?**
 
 Al momento della stesura di questo README **sono solo io**, Sergio A., volevo solo usare una sorta di nome d'arte per pubblicare questo gioco. Ma non sono contrario all'idea di espandere il team se mai si presentasse l'opportunità.
+
+## 💖 Ti è piaciuto questo progetto?
+
+Se vuoi sostenerlo, potresti [comprarmi un caffè](https://ko-fi.com/mechaneko) o condividerlo.
 
 ## **✨ Ringraziamenti Speciali**
 
