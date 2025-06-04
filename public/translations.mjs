@@ -114,7 +114,7 @@ const translations = {
         musicSelectorNoMusic: "No music found.",
         // Restore Backup Modal (Options)
         restoreBackupModalTitle: "Restore Character from Backup",
-        restoreBackupWarning: "<strong>Warning:</strong> Restoring a backup will overwrite the current character's data and chat history. Please make a backup of the current character first if needed.",
+        restoreBackupWarning: "Warning: Restoring a backup will overwrite the current character's data and chat history. Please make a backup of the current character first if needed.",
         selectBackupLabel: "Select a backup to restore:",
         applyRestoreBackupButton: "Restore Selected Backup",
         // Confirmation Modal
@@ -274,7 +274,7 @@ const translations = {
         musicSelectorNoMusic: "No se encontró música.",
         // Restore Backup Modal (Options)
         restoreBackupModalTitle: "Restaurar Personaje desde Copia",
-        restoreBackupWarning: "<strong>Advertencia:</strong> Restaurar una copia de seguridad sobrescribirá los datos y el historial de chat del personaje actual. Por favor, haz una copia de seguridad del personaje actual primero si es necesario.",
+        restoreBackupWarning: "Advertencia: Restaurar una copia de seguridad sobrescribirá los datos y el historial de chat del personaje actual. Por favor, haz una copia de seguridad del personaje actual primero si es necesario.",
         selectBackupLabel: "Selecciona una copia para restaurar:",
         applyRestoreBackupButton: "Restaurar Copia Seleccionada",
         // Confirmation Modal
@@ -434,7 +434,7 @@ const translations = {
         musicSelectorNoMusic: "Nessuna musica trovata.",
         // Restore Backup Modal (Options)
         restoreBackupModalTitle: "Ripristina Personaggio da Backup",
-        restoreBackupWarning: "<strong>Attenzione:</strong> Il ripristino di un backup sovrascriverà i dati e la cronologia chat del personaggio corrente. Si prega di creare prima un backup del personaggio corrente, se necessario.",
+        restoreBackupWarning: "Attenzione: Il ripristino di un backup sovrascriverà i dati e la cronologia chat del personaggio corrente. Si prega di creare prima un backup del personaggio corrente, se necessario.",
         selectBackupLabel: "Seleziona un backup da ripristinare:",
         applyRestoreBackupButton: "Ripristina Backup Selezionato",
         // Confirmation Modal
