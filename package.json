@@ -16,7 +16,7 @@
     "email": "sergioalfonso_20@hotmail.com"
   },
   "license": "CC BY-NC 4.0",
-  "description": "",
+  "description": "Interactive game that uses AI characters.",
   "dependencies": {
     "express": "^5.1.0",
     "openai": "^4.98.0"
