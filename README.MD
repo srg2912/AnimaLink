@@ -140,11 +140,11 @@ Want to share your character without sharing personal conversations? Use the **C
 
 **AnimaLink** is currently available for the following platforms, click to follow the download link:
 
-* [🪟 **Windows (x64)**](INSERT-WINDOWS-LINK-HERE) (Currently the links take you nowhere, I'll add the actual links soon)
-* [🐧 **Linux (x64)**](INSERT-LINUX-X64-LINK-HERE)
-* [📱 **Linux (arm64)**](INSERT-ARM64-DEBIAN-LINK-HERE)
+* 🪟 **Windows (x64)**
+* 🐧 **Linux (x64)**
+* 📱 **Linux (arm64)**
 
-Stay tuned for more platforms and updates in the future!
+You can download the game [by following this link](https://mechanekostudios.itch.io/animalink).
 
   > *Note: The arm64 version is only available for Debian-based distributions via `.deb` package.*
 

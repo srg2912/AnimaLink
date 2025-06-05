@@ -138,13 +138,13 @@ El juego crea copias de seguridad automáticas, y puedes hacer una manualmente e
 
 ## **Compatibilidad**
 
-**AnimaLink** está actualmente disponible para las siguientes plataformas, haz clic para seguir el enlace de descarga:
+**AnimaLink** está actualmente disponible para las siguientes plataformas:
 
-* [🪟 **Windows (x64)**](INSERT-WINDOWS-LINK-HERE) (Actualmente los enlaces no llevan a ninguna parte, añadiré los enlaces reales pronto)
-* [🐧 **Linux (x64)**](INSERT-LINUX-X64-LINK-HERE)
-* [📱 **Linux (arm64)**](INSERT-ARM64-DEBIAN-LINK-HERE)
+* 🪟 **Windows (x64)**
+* 🐧 **Linux (x64)**
+* 📱 **Linux (arm64)**
 
-¡Mantente atento a más plataformas y actualizaciones en el futuro!
+Puedes descargar el juego [siguiendo este enlace](https://mechanekostudios.itch.io/animalink).
 
   > *Nota: La versión arm64 solo está disponible para distribuciones basadas en Debian a través de un paquete `.deb`.*
 
