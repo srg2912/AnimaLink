@@ -1,5 +1,6 @@
 # **AnimaLink**
 **🌐 Lenguaje: [English](README.md) | [Español](README.es.md) | [Italiano](README.it.md)**
+**🔗 Unete a nuestro [Discord](https://discord.gg/hXeYb8up)**
 
 ## Tabla de Contenidos
 - [**AnimaLink**](#animalink)
