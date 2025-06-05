@@ -15,6 +15,9 @@
     - [💾 Backup Automatici e Manuali](#-backup-automatici-e-manuali)
     - [📦 Sistema di Esportazione dei Personaggi](#-sistema-di-esportazione-dei-personaggi)
   - [**Compatibilità**](#compatibilità)
+    - [🪟 Installare su Windows](#-installare-su-windows)
+    - [🐧 Installare su Linux x86\_64](#-installare-su-linux-x86_64)
+    - [📱 Installare su Linux arm64](#-installare-su-linux-arm64)
     - [💻 Compilare dal Codice Sorgente](#-compilare-dal-codice-sorgente)
     - [📱 Compatibilità Android (Solo Utenti Esperti)](#-compatibilità-android-solo-utenti-esperti)
   - [**Come si gioca?**](#come-si-gioca)
@@ -145,6 +148,51 @@ Restate sintonizzati per altre piattaforme e aggiornamenti in futuro!
   > *Nota: La versione arm64 è disponibile solo per distribuzioni basate su Debian tramite pacchetto `.deb`.*
 
 Stiamo pianificando di supportare **macOS** in futuro. Una build per macOS potrebbe essere aggiunta una volta completati i test di compatibilità.
+
+---
+
+### 🪟 Installare su Windows
+
+Scarica il file `.exe`, fai doppio clic per installarlo, scegli dove posizionare i file del gioco e sei pronto!
+
+---
+
+### 🐧 Installare su Linux x86_64
+
+1. Scarica il file `.AppImage`.
+2. Apri il terminale e vai nella cartella Download:
+
+  ```
+  cd ~/Downloads
+  ```
+
+3. Esegui il comando:
+
+  ```
+  ./AnimaLink-1.0.0.AppImage --no-sandbox
+  ```
+
+---
+
+### 📱 Installare su Linux arm64
+
+1. Scarica il file `.deb`.
+2. Apri il terminale e vai nella cartella Download:
+
+  ```
+  cd ~/Downloads
+  ```
+
+3. Per installarlo, esegui:
+
+  ```
+  sudo dpkg --install animalink_1.0.0_arm64.deb
+  ```
+
+4. Per giocare, esegui:
+  ```
+  animalink --no-sandbox
+  ```
 
 ---
 

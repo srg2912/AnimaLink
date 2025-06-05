@@ -15,6 +15,9 @@
     - [💾 Automatic \& Manual Backups](#-automatic--manual-backups)
     - [📦 Character Export System](#-character-export-system)
   - [**Compatibility**](#compatibility)
+    - [🪟 Install on Windows](#-install-on-windows)
+    - [🐧 Install on Linux x86\_64](#-install-on-linux-x86_64)
+    - [📱 Install on Linux arm64](#-install-on-linux-arm64)
     - [💻 Build from Source](#-build-from-source)
     - [📱 Android Compatibility (Advanced Users Only)](#-android-compatibility-advanced-users-only)
   - [**How to play the game?**](#how-to-play-the-game)
@@ -145,6 +148,51 @@ Stay tuned for more platforms and updates in the future!
   > *Note: The arm64 version is only available for Debian-based distributions via `.deb` package.*
 
 We're planning to support **macOS** in the future. A macOS build may be added once compatibility testing is completed.
+
+---
+
+### 🪟 Install on Windows
+
+Download the `.exe`, double click to install it, choose where you want to place the game files and you're ready to go!
+
+---
+
+### 🐧 Install on Linux x86_64
+
+1. Download the `.AppImage` file.
+2. Open your terminal and go to Downloads:
+
+  ```
+  cd ~/Downloads
+  ```
+
+3. Run:
+
+  ```
+  ./AnimaLink-1.0.0.AppImage --no-sandbox
+  ```
+
+---
+
+### 📱 Install on Linux arm64
+
+1. Download the `.deb` file.
+2. Open your terminal and go to Downloads:
+
+  ```
+  cd ~/Downloads
+  ```
+
+3. To install it, run:
+
+  ```
+  sudo dpkg --install animalink_1.0.0_arm64.deb
+  ```
+
+4. To play, run:
+  ```
+  animalink --no-sandbox
+  ```
 
 ---
 
